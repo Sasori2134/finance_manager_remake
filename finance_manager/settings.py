@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'finance_manager_app'
 ]
 
 MIDDLEWARE = [
@@ -78,6 +79,8 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+AUTH_USER_MODEL = 'finance_manager_app.CustomUserModel'
 
 
 # Password validation
