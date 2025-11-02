@@ -68,6 +68,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'finance_manager.wsgi.application'
+AUTH_USER_MODEL = 'finance_manager_app.CustomUserModel'
 
 
 # Database
@@ -80,7 +81,6 @@ DATABASES = {
     }
 }
 
-AUTH_USER_MODEL = 'finance_manager_app.CustomUserModel'
 
 
 # Password validation
