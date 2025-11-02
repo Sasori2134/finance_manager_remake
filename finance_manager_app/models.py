@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
-from django.contrib.auth import get_user_model
 
 # Create your models here.
 User = 'finance_manager_app.CustomUserModel'
@@ -47,6 +46,7 @@ class Monthly_budget(models.Model):
     category = models.CharField(max_length=100)
     budget = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(auto_now_add=True)
+
 
 class Recurring_bill(models.Model):
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
