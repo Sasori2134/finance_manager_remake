@@ -10,3 +10,12 @@ class TransactionFilter(filters.FilterSet):
             'category' : ['icontains'],
             'transaction_type' : ['iexact']
         }
+
+class Monthly_budgetFilter(filters.FilterSet):
+    created_at = filters.DateFromToRangeFilter(field_name='created_at')
+
+    class Meta:
+        model = models.Monthly_budget
+        fields = {
+            'category' : ['icontains']
+        }

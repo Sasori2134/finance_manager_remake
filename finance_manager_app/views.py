@@ -4,29 +4,68 @@ from rest_framework.permissions import IsAuthenticated
 from . import models
 from finance_manager.permissions import IsOwner
 from django_filters.rest_framework import DjangoFilterBackend
-from .filters import TransactionFilter
-from .serializers import TransactionSerializer
-
-
-class TransactionCreateApiView(generics.CreateAPIView):
-    serializer_class = None
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        serializer.save(user = self.request.user)
+from .filters import TransactionFilter, Monthly_budgetFilter
+from .serializers import TransactionSerializer, BudgetSerializer
+from rest_framework import mixins
     
 
-class TransactionListApiView(generics.ListAPIView):
+class TransactionView(
+    generics.GenericAPIView, 
+    mixins.CreateModelMixin, 
+    mixins.ListModelMixin, 
+    mixins.UpdateModelMixin, 
+    mixins.DestroyModelMixin
+    ):
     serializer_class = TransactionSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsOwner, IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TransactionFilter
 
+
     def get_queryset(self):
         return models.Transaction.objects.filter(user = self.request.user)
+    
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+    
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
+    
+
+class Monthly_budgetView(
+    generics.GenericAPIView,
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin
+    ):
+    serializer_class = BudgetSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsOwner, IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = Monthly_budgetFilter
+
+    def get_queryset(self):
+        return  models.Monthly_budget.objects.filter(user = self.request.user)
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+    
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
 
 
 
