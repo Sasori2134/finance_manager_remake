@@ -1,4 +1,5 @@
 from rest_framework import generics
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from . import models
@@ -8,6 +9,9 @@ from .filters import TransactionFilter, Monthly_budgetFilter, RecurringBillFilte
 from .serializers import TransactionSerializer, BudgetSerializer, RecurringBillSerializer, RegisterSerializer
 from rest_framework import mixins
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import status
+from rest_framework.response import Response
 
 
 class RegisterView(
@@ -117,3 +121,11 @@ class RecurringBillView(
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
     
+
+class LogoutView(
+    APIView
+):
+    def post(self, request, *args, **kwargs):
+        token = RefreshToken(request.data.get('refresh'))
+        token.blacklist()
+        return Response(status = status.HTTP_200_OK)
