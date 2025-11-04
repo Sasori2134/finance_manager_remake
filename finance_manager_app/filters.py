@@ -7,7 +7,7 @@ class TransactionFilter(filters.FilterSet):
     class Meta:
         model = models.Transaction
         fields = {
-            'category' : ['icontains'],
+            'category' : ['icontains', 'iexact'],
             'transaction_type' : ['iexact']
         }
 
@@ -17,5 +17,18 @@ class Monthly_budgetFilter(filters.FilterSet):
     class Meta:
         model = models.Monthly_budget
         fields = {
-            'category' : ['icontains']
+            'category' : ['icontains', 'iexact']
+        }
+
+class RecurringBillFilter(filters.FilterSet):
+    created_at = filters.DateTimeFromToRangeFilter(field_name='created_at')
+    max_amount = filters.NumberFilter(field_name='amount', lookup_expr="lte")
+    min_amount = filters.NumberFilter(field_name='amount', lookup_expr='gte')
+
+    class Meta:
+        model = models.Recurring_bill
+        fields = {
+            'category' : ['icontains', 'iexact'],
+            'item' : ['icontains', 'iexact'],
+
         }

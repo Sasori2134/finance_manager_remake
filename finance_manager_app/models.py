@@ -40,6 +40,9 @@ class Transaction(models.Model):
     transaction_type = models.CharField(max_length=8)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.user} | {self.category} | {self.created_at}"
+
 
 class Monthly_budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -47,12 +50,18 @@ class Monthly_budget(models.Model):
     budget = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.user} | {self.category} | {self.created_at}"
+
 
 class Recurring_bill(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     category = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    recurring_bill_type = models.CharField(max_length=20)
+    recurring_bill_type = models.CharField(max_length=20) #for weekly monthly everyday e.t.c
     item = models.CharField(max_length=100)
     transaction_type = models.CharField(max_length=7, default='expense')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} | {self.category} | {self.created_at}"
