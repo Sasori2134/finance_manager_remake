@@ -6,3 +6,9 @@ from . import models
 admin.site.register(models.Transaction)
 admin.site.register(models.Monthly_budget)
 admin.site.register(models.Recurring_bill)
+
+@admin.register(models.CustomUserModel)
+class CustomUserAdmin(admin.ModelAdmin):
+    list_display = ('id', 'email')
+    list_filter = ('id', 'email')
+    search_fields = ('id', 'email')
