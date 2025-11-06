@@ -33,7 +33,6 @@ class TransactionView(
     mixins.DestroyModelMixin
 ):
     serializer_class = TransactionSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsOwner, IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TransactionFilter
@@ -65,7 +64,6 @@ class Monthly_budgetView(
     mixins.DestroyModelMixin
 ):
     serializer_class = BudgetSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsOwner, IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = Monthly_budgetFilter
@@ -98,7 +96,6 @@ class RecurringBillView(
 ):
 
     serializer_class = RecurringBillSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsOwner, IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RecurringBillFilter
@@ -125,6 +122,7 @@ class RecurringBillView(
 class LogoutView(
     APIView
 ):
+    permission_classes = [IsAuthenticated]
     def post(self, request, *args, **kwargs):
         token = RefreshToken(request.data.get('refresh'))
         token.blacklist()
