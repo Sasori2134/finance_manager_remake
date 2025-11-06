@@ -39,6 +39,9 @@ class TransactionView(
 
     def get_queryset(self):
         return models.Transaction.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        return serializer.save(user = self.request.user)
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
@@ -70,6 +73,9 @@ class Monthly_budgetView(
 
     def get_queryset(self):
         return models.Monthly_budget.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        return serializer.save(user = self.request.user)
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
@@ -102,6 +108,9 @@ class RecurringBillView(
 
     def get_queryset(self):
         return models.Recurring_bill.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        return serializer.save(user = self.request.user)
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)

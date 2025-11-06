@@ -21,10 +21,6 @@ class TransactionSerializer(serializers.ModelSerializer):
             'transaction_type'
         ]
 
-    def create(self, validated_data):
-        validated_data['user'] = self.context.get('request').user
-        return super().create(validated_data)
-
 
 class BudgetSerializer(serializers.ModelSerializer):
     class Meta:
@@ -47,10 +43,6 @@ class BudgetSerializer(serializers.ModelSerializer):
                 'You Have To Include Valid Category')
         return data
 
-    def create(self, validated_data):
-        validated_data['user'] = self.context.get('request').user
-        return super().create(validated_data)
-
 
 class RecurringBillSerializer(serializers.ModelSerializer):
     class Meta:
@@ -64,10 +56,6 @@ class RecurringBillSerializer(serializers.ModelSerializer):
             'transaction_type',
             'created_at'
         ]
-
-    def create(self, validated_data):
-        validated_data['user'] = self.context.get('request').user
-        return super().create(validated_data)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
