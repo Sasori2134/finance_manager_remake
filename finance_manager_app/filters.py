@@ -3,22 +3,20 @@ from finance_manager_app import models
 
 class TransactionFilter(filters.FilterSet):
     created_at = filters.DateTimeFromToRangeFilter(field_name='created_at')
+    category__icontains = filters.CharFilter(field_name='category__category', lookup_expr='icontains')
+    category__iexact = filters.CharFilter(field_name='category__category', lookup_expr='iexact')
 
     class Meta:
         model = models.Transaction
         fields = {
-            'category' : ['icontains', 'iexact'],
             'transaction_type' : ['iexact']
         }
 
 class Monthly_budgetFilter(filters.FilterSet):
     created_at = filters.DateFromToRangeFilter(field_name='created_at')
-
-    class Meta:
-        model = models.Monthly_budget
-        fields = {
-            'category' : ['icontains', 'iexact']
-        }
+    category__icontains = filters.CharFilter(field_name='category__category', lookup_expr='icontains')
+    category__iexact = filters.CharFilter(field_name='category__category', lookup_expr='iexact')
+    
 
 class RecurringBillFilter(filters.FilterSet):
     created_at = filters.DateTimeFromToRangeFilter(field_name='created_at')
@@ -30,5 +28,4 @@ class RecurringBillFilter(filters.FilterSet):
         fields = {
             'category' : ['icontains', 'iexact'],
             'item' : ['icontains', 'iexact'],
-
         }

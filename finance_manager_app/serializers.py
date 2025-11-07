@@ -23,25 +23,20 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 
 class BudgetSerializer(serializers.ModelSerializer):
+    spent = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    remaining = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    
     class Meta:
         model = models.Monthly_budget
 
         fields = [
             'pk',
             'budget',
+            'spent',
+            'remaining',
             'category',
             'created_at'
         ]
-
-    def validate(self, data):
-        user = self.context['request'].user
-        data['category'] = data['category'].strip().lower()
-        if models.Monthly_budget.objects.filter(user_id=user, category=data.get('category')).exists():
-            raise serializers.ValidationError('Category Already Exists')
-        if data.get('category').isdigit():
-            raise serializers.ValidationError(
-                'You Have To Include Valid Category')
-        return data
 
 
 class RecurringBillSerializer(serializers.ModelSerializer):
