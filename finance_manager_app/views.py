@@ -4,14 +4,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from . import models
 from finance_manager.permissions import IsOwner
 from django_filters.rest_framework import DjangoFilterBackend
-from .filters import TransactionFilter, RecurringBillFilter, Monthly_budgetFilter
-from .serializers import TransactionSerializer, BudgetSerializer, RecurringBillSerializer, RegisterSerializer
+from .filters import TransactionFilter, RecurringBillFilter, Monthly_budgetFilter, DashboardFilter
+from .serializers import TransactionSerializer, BudgetSerializer, RecurringBillSerializer, RegisterSerializer, DashboardSerializer
 from rest_framework import mixins
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.response import Response
-from django.db.models import Sum, F, Q, Value, ExpressionWrapper, DecimalField
+from django.db.models import Sum, Avg, F, Q, Value, ExpressionWrapper, DecimalField, Case, When
+from django.db.models.functions import ExtractMonth
 from django.db.models.functions import Coalesce
 
 
@@ -134,10 +135,61 @@ class RecurringBillView(
 
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
-    
+
+
+class DashboardListView(
+    generics.ListAPIView
+):
+    serializer_class = DashboardSerializer
+    permission_classes = [IsOwner, IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = DashboardFilter
+
+    def get_queryset(self):
+        return models.Transaction.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        serialized = DashboardSerializer(data = request.query_params)
+        if serialized.is_valid(raise_exception=True):
+            queryset = self.filter_queryset(self.get_queryset())
+            avg_income = queryset.filter(transaction_type='income').aggregate(
+                Avg("price", default=0))['price__avg']
+            avg_expense = queryset.filter(transaction_type='expense').aggregate(
+                Avg("price", default=0))['price__avg']
+            balance = queryset.aggregate(balance=Sum(
+                Case(
+                    When(transaction_type='income', then=F('price')),
+                    When(transaction_type='expense', then=-F('price')),
+                    default=0,
+                    output_field=DecimalField()
+                )
+            )
+            )['balance'] or 0
+            total = queryset.aggregate(
+                income=Sum('price', default=0, filter=Q(
+                    transaction_type='income')),
+                expense=Sum('price', default=0, filter=Q(
+                    transaction_type='expense'))
+            )
+            donut_chart = queryset.values(transaction_category=F(
+                'category__category')).annotate(price=Sum('price'))
+            monthly_income_expense = queryset.values(month=ExtractMonth(F('created_at'))).annotate(expense=Sum('price', filter=Q(
+                transaction_type='expense'), default=0), income=Sum('price', filter=Q(transaction_type='income'), default=0))
+            recent_transactions = TransactionSerializer(queryset[:5], many=True)
+            return Response({
+                'avg_income': round(avg_income, 2),
+                'avg_expense': round(avg_expense, 2),
+                'balance': balance,
+                'total_income': total.get('income'),
+                'total_expense': total.get('expense'),
+                'donut_chart': donut_chart,
+                'monthly_income_expense': monthly_income_expense,
+                'recent_transactions': recent_transactions.data
+            })
+
 
 class LogoutView(
-    APIView
+    generics.GenericAPIView
 ):
     permission_classes = [IsAuthenticated]
 

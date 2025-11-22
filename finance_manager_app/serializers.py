@@ -58,7 +58,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         write_only=True,
         validators=[
             RegexValidator(
-                regex=r'^(?=.*[A-Z])(?=(?:.*\d){3,}).+$', message="You should have at least one uppercase character and at least 3 numbers in password")
+                regex=r'^(?=.*[A-Z])(?=(?:.*\d){3,}).+$', 
+                message="You should have at least one uppercase character and at least 3 numbers in password")
         ])
 
     class Meta:
@@ -67,3 +68,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             'email',
             'password'
         ]
+
+
+class DashboardSerializer(serializers.Serializer):
+    period_choices = [
+        ('1m', '1M'),
+        ('2m', '2M'),
+        ('3m', '3M')
+    ]
+    period = serializers.ChoiceField(period_choices)

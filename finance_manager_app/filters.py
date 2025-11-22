@@ -1,5 +1,6 @@
 from django_filters import rest_framework as filters
 from finance_manager_app import models
+from datetime import datetime, timedelta
 
 class TransactionFilter(filters.FilterSet):
     created_at = filters.DateTimeFromToRangeFilter(field_name='created_at')
@@ -29,3 +30,19 @@ class RecurringBillFilter(filters.FilterSet):
             'category' : ['icontains', 'iexact'],
             'item' : ['icontains', 'iexact'],
         }
+
+class DashboardFilter(filters.FilterSet):
+    period = filters.CharFilter(method='filter_data')
+
+    def filter_data(self, queryset, name, value):
+        if value == '2m':
+            start = datetime.isoformat(datetime.now() - timedelta(days=60))
+        elif value == '3m':
+            start = datetime.isoformat(datetime.now() - timedelta(days=90))
+        else:
+            start = datetime.isoformat(datetime.now() - timedelta(days=30))
+        return queryset.filter(created_at__gte = start)
+    
+    class Meta:
+        model = models.Transaction
+        fields = ['period']
