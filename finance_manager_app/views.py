@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from django.db.models import Sum, Avg, F, Q, Value, ExpressionWrapper, DecimalField, Case, When
 from django.db.models.functions import ExtractMonth
 from django.db.models.functions import Coalesce
+from . import cache
 
 
 class RegisterView(
@@ -151,6 +152,9 @@ class DashboardListView(
     def list(self, request, *args, **kwargs):
         serialized = DashboardSerializer(data = request.query_params)
         if serialized.is_valid(raise_exception=True):
+            cached_data = cache.get_cached_data(user_id=request.user.id, key="dashboard", period=serialized.data.get("period"))
+            if cached_data:
+                return Response(cached_data)
             queryset = self.filter_queryset(self.get_queryset())
             avg_income = queryset.filter(transaction_type='income').aggregate(
                 Avg("price", default=0))['price__avg']
@@ -176,16 +180,18 @@ class DashboardListView(
             monthly_income_expense = queryset.values(month=ExtractMonth(F('created_at'))).annotate(expense=Sum('price', filter=Q(
                 transaction_type='expense'), default=0), income=Sum('price', filter=Q(transaction_type='income'), default=0))
             recent_transactions = TransactionSerializer(queryset[:5], many=True)
-            return Response({
+            data = {
                 'avg_income': round(avg_income, 2),
                 'avg_expense': round(avg_expense, 2),
                 'balance': balance,
                 'total_income': total.get('income'),
                 'total_expense': total.get('expense'),
-                'donut_chart': donut_chart,
-                'monthly_income_expense': monthly_income_expense,
+                'donut_chart': list(donut_chart),
+                'monthly_income_expense': list(monthly_income_expense),
                 'recent_transactions': recent_transactions.data
-            })
+            }
+            cache.set_cached_data(user_id=request.user.id, key="dashboard", value=data, period=serialized.data.get("period"))
+            return Response(data)
 
 
 class LogoutView(
