@@ -15,6 +15,7 @@ from django.db.models import Sum, Avg, F, Q, Value, ExpressionWrapper, DecimalFi
 from django.db.models.functions import ExtractMonth
 from django.db.models.functions import Coalesce
 from . import cache
+from datetime import date
 
 
 class RegisterView(
@@ -81,10 +82,21 @@ class Monthly_budgetView(
         return serializer.save(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
+        cached = cache.get_cached_data(user_id=request.user.id, key="budget")
+        if cached:
+            return Response(cached)
         queryset = self.filter_queryset(self.get_queryset())
+        current_date = date.today()
+        transaction_filter = (
+            Q(category__transaction__user=request.user) &
+            Q(category__transaction__created_at__month = current_date.month) &
+            Q(category__transaction__created_at__year = current_date.month) &
+            Q(category__transaction__transaction_type = 'expense')
+        )
         new_queryset = queryset.select_related('category').annotate(spent=ExpressionWrapper(Sum(Coalesce('category__transaction__price', Value(
-            0))), output_field=DecimalField()), filter=Q(category__transaction__user=request.user)).annotate(remaining=F('budget') - F('spent'))
+            0))), output_field=DecimalField()), filter=transaction_filter).annotate(remaining=F('budget') - F('spent'))
         serialized = self.get_serializer(new_queryset, many=True)
+        cache.set_cached_data(user_id=request.user.id, key="budget", value=serialized.data)
         return Response(serialized.data)
 
     def get(self, request, *args, **kwargs):
