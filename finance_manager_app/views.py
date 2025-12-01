@@ -1,5 +1,4 @@
 from rest_framework import generics
-from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from . import models
 from finance_manager.permissions import IsOwner
@@ -93,8 +92,10 @@ class Monthly_budgetView(
             Q(category__transaction__created_at__year = current_date.month) &
             Q(category__transaction__transaction_type = 'expense')
         )
+
         new_queryset = queryset.select_related('category').annotate(spent=ExpressionWrapper(Sum(Coalesce('category__transaction__price', Value(
             0))), output_field=DecimalField()), filter=transaction_filter).annotate(remaining=F('budget') - F('spent'))
+        
         serialized = self.get_serializer(new_queryset, many=True)
         cache.set_cached_data(user_id=request.user.id, key="budget", value=serialized.data)
         return Response(serialized.data)
@@ -167,11 +168,14 @@ class DashboardListView(
             cached_data = cache.get_cached_data(user_id=request.user.id, key="dashboard", period=serialized.data.get("period"))
             if cached_data:
                 return Response(cached_data)
+            
             queryset = self.filter_queryset(self.get_queryset())
             avg_income = queryset.filter(transaction_type='income').aggregate(
                 Avg("price", default=0))['price__avg']
+            
             avg_expense = queryset.filter(transaction_type='expense').aggregate(
                 Avg("price", default=0))['price__avg']
+            
             balance = queryset.aggregate(balance=Sum(
                 Case(
                     When(transaction_type='income', then=F('price')),
@@ -181,6 +185,7 @@ class DashboardListView(
                 )
             )
             )['balance'] or 0
+
             total = queryset.aggregate(
                 income=Sum('price', default=0, filter=Q(
                     transaction_type='income')),
@@ -191,7 +196,9 @@ class DashboardListView(
                 'category__category')).annotate(price=Sum('price'))
             monthly_income_expense = queryset.values(month=ExtractMonth(F('created_at'))).annotate(expense=Sum('price', filter=Q(
                 transaction_type='expense'), default=0), income=Sum('price', filter=Q(transaction_type='income'), default=0))
+            
             recent_transactions = TransactionSerializer(queryset[:5], many=True)
+            
             data = {
                 'avg_income': round(avg_income, 2),
                 'avg_expense': round(avg_expense, 2),

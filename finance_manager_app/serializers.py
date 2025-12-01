@@ -46,7 +46,7 @@ class RecurringBillSerializer(serializers.ModelSerializer):
             'pk',
             'category',
             'amount',
-            'recurring_bill_type',
+            'payment_due',
             'item',
             'transaction_type',
             'created_at'

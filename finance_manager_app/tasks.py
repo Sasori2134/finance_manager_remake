@@ -1,10 +1,10 @@
 from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
-from .models import Monthly_budget
+from .models import Monthly_budget, Recurring_bill
 from django.db.models import Sum, Value, F, Q, DecimalField
 from django.db.models.functions import Coalesce
-from datetime import date
+from datetime import date, timedelta
 from .serializers import BudgetSerializer
 
 
@@ -31,4 +31,13 @@ def send_budget_warning_email(user, category, user_email):
     else:
         return None
     return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
-    
+
+
+@shared_task
+def send_recurring_bill_warning_email():
+    bills = Recurring_bill.objects.filter(payment_due = (date.today() + timedelta(days=1)).day).select_related("user")
+    for bill in bills:
+        subject = "Payment Due"
+        message = f"Wanted to remind you that your bill for {bill.item} is due tomorrow \n\n Thank you for using my finance manager :)"
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [bill.user.email], fail_silently=False)
+    return 1
