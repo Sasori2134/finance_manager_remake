@@ -4,17 +4,18 @@ from . import models
 from finance_manager.permissions import IsOwner
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import TransactionFilter, RecurringBillFilter, Monthly_budgetFilter, DashboardFilter
-from .serializers import TransactionSerializer, BudgetSerializer, RecurringBillSerializer, RegisterSerializer, DashboardSerializer
+from .serializers import TransactionSerializer, BudgetSerializer, RecurringBillSerializer, RegisterSerializer, DashboardSerializer, ChangepasswordinputSerializer
 from rest_framework import mixins
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.response import Response
-from django.db.models import Sum, Avg, F, Q, Value, ExpressionWrapper, DecimalField, Case, When
+from django.db.models import Sum, Avg, F, Q, Value, DecimalField, Case, When
 from django.db.models.functions import ExtractMonth
 from django.db.models.functions import Coalesce
 from . import cache
 from datetime import date
+from .tasks import send_password_change_notification
 
 
 class RegisterView(
@@ -71,6 +72,7 @@ class Monthly_budgetView(
 ):
     serializer_class = BudgetSerializer
     permission_classes = [IsOwner, IsAuthenticated]
+    lookup_field = 'pk'
     filter_backends = [DjangoFilterBackend]
     filterset_class = Monthly_budgetFilter
 
@@ -89,13 +91,13 @@ class Monthly_budgetView(
         transaction_filter = (
             Q(category__transaction__user=request.user) &
             Q(category__transaction__created_at__month = current_date.month) &
-            Q(category__transaction__created_at__year = current_date.month) &
+            Q(category__transaction__created_at__year = current_date.year) &
             Q(category__transaction__transaction_type = 'expense')
         )
 
-        new_queryset = queryset.select_related('category').annotate(spent=ExpressionWrapper(Sum(Coalesce('category__transaction__price', Value(
-            0))), output_field=DecimalField()), filter=transaction_filter).annotate(remaining=F('budget') - F('spent'))
-        
+        new_queryset = queryset.select_related('category').annotate(spent=Coalesce(Sum('category__transaction__price', filter=transaction_filter), Value(
+            0, output_field=DecimalField()))).annotate(remaining=F('budget') - F('spent'))
+                
         serialized = self.get_serializer(new_queryset, many=True)
         cache.set_cached_data(user_id=request.user.id, key="budget", value=serialized.data)
         return Response(serialized.data)
@@ -168,7 +170,6 @@ class DashboardListView(
             cached_data = cache.get_cached_data(user_id=request.user.id, key="dashboard", period=serialized.data.get("period"))
             if cached_data:
                 return Response(cached_data)
-            
             queryset = self.filter_queryset(self.get_queryset())
             avg_income = queryset.filter(transaction_type='income').aggregate(
                 Avg("price", default=0))['price__avg']
@@ -180,8 +181,6 @@ class DashboardListView(
                 Case(
                     When(transaction_type='income', then=F('price')),
                     When(transaction_type='expense', then=-F('price')),
-                    default=0,
-                    output_field=DecimalField()
                 )
             )
             )['balance'] or 0
@@ -206,11 +205,26 @@ class DashboardListView(
                 'total_income': total.get('income'),
                 'total_expense': total.get('expense'),
                 'donut_chart': list(donut_chart),
-                'monthly_income_expense': list(monthly_income_expense),
+                'monthly_income_expense_chart': list(monthly_income_expense),
                 'recent_transactions': recent_transactions.data
             }
             cache.set_cached_data(user_id=request.user.id, key="dashboard", value=data, period=serialized.data.get("period"))
             return Response(data)
+
+
+class ChangepasswordView(generics.GenericAPIView):
+    serializer_class = ChangepasswordinputSerializer
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        serialized_input = self.serializer_class(data = request.data, context = {'request' : request})
+        if serialized_input.is_valid(raise_exception = True):
+            user = request.user
+            user.set_password(serialized_input.validated_data.get('new_password'))
+            user.save()
+            send_password_change_notification.delay(user.email)
+            return Response({"message" : "Password has been changed!"})
+        return Response({"message" : "Invalid input"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LogoutView(

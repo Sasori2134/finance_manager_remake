@@ -41,3 +41,10 @@ def send_recurring_bill_warning_email():
         message = f"Wanted to remind you that your bill for {bill.item} is due tomorrow \n\n Thank you for using my finance manager :)"
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [bill.user.email], fail_silently=False)
     return 1
+
+
+@shared_task
+def send_password_change_notification(user_email):
+    subject = "Password change"
+    message = "Hello just wanted to let you know that your password has been changed if it wasn't you please report it to our customer support"
+    return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
