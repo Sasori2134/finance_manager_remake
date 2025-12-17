@@ -76,6 +76,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         except ValidationError as e:
             raise serializers.ValidationError({"password" : e.messages})
         return value
+    
+    def save(self):
+        created_user = user.objects.create_user(**self.validated_data)
+        return created_user
 
 
 class DashboardSerializer(serializers.Serializer):
@@ -99,10 +103,18 @@ class ChangepasswordinputSerializer(serializers.Serializer):
         current_password = data.get('current_password')
         new_password = data.get('new_password')
         if not user.check_password(current_password):
-            raise serializers.ValidationError({"password" : 'Wrong password!'})
+            raise serializers.ValidationError({"current_password" : 'Wrong password!'})
         elif new_password == current_password:
-            raise serializers.ValidationError({'password' : "Your new password can't be same as your current password"})
+            raise serializers.ValidationError({'new_password' : "Your new password can't be same as your current password"})
         try:
             validate_password(new_password, user)
         except ValidationError as e:
-            raise serializers.ValidationError({"password" : e.messages})
+            raise serializers.ValidationError({"new_password" : e.messages})
+        return data
+    
+    def save(self):
+        user = self.context['request'].user
+        new_password = self.validated_data.get('new_password')
+        user.set_password(new_password)
+        user.save()
+        return user

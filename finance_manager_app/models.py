@@ -56,6 +56,9 @@ class Monthly_budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     category = models.ForeignKey(CategoryModel, on_delete=models.SET_NULL, null=True)
     budget = models.DecimalField(max_digits=10, decimal_places=2)
+    budget_exceeded_email_sent = models.BooleanField(default=False)
+    budget_four_fifth_exceeded_email_sent = models.BooleanField(default=False)
+    budget_exact_email_sent = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
 
     def __str__(self):

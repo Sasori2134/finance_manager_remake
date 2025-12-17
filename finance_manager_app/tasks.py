@@ -5,7 +5,6 @@ from .models import Monthly_budget, Recurring_bill
 from django.db.models import Sum, Value, F, Q, DecimalField
 from django.db.models.functions import Coalesce
 from datetime import date, timedelta
-from .serializers import BudgetSerializer
 
 
 
@@ -18,16 +17,21 @@ def send_budget_warning_email(user, category, user_email):
         Q(category__transaction__transaction_type = 'expense')
     )
     budget = Monthly_budget.objects.filter(user = user, category__category = category).select_related('category').annotate(
-    spent = Sum(Coalesce("category__transaction__price", Value(0, output_field=DecimalField())), filter=transaction_filter), remaining = F('budget')-F('spent'))[0]
-    serialized = BudgetSerializer(budget)
-    remaining = float(serialized.data.get('remaining'))
+    spent = Coalesce(Sum("category__transaction__price", filter=transaction_filter), Value(0, output_field=DecimalField()))).annotate(remaining = F('budget')-F('spent'))[0]
+    remaining = float(budget.remaining)
     subject = "Budget warning"
-    if remaining < 0:
+    if remaining < 0 and not budget.budget_exceeded_email_sent:
         message = f"You exceeded your monthly budget by {abs(remaining)}"
-    elif remaining == 0:
+        budget.budget_exceeded_email_sent = True
+        budget.save(update_fields=['budget_exceeded_email_sent'])
+    elif remaining == 0 and not budget.budget_exact_email_sent:
         message = f"You have 0 dollars left in your budget"
-    elif remaining <= float(serialized.data.get('budget')) * 0.2:
+        budget.budget_exact_email_sent = True
+        budget.save(update_fields=['budget_exact_email_sent'])
+    elif remaining <= float(budget.budget) * 0.2 and not budget.budget_four_fifth_exceeded_email_sent:
         message = f"You exceeded 80% of your monthly budget"
+        budget.budget_four_fifth_exceeded_email_sent = True
+        budget.save(update_fields=['budget_four_fifth_exceeded_email_sent'])
     else:
         return None
     return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
@@ -47,4 +51,11 @@ def send_recurring_bill_warning_email():
 def send_password_change_notification(user_email):
     subject = "Password change"
     message = "Hello just wanted to let you know that your password has been changed if it wasn't you please report it to our customer support"
+    return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
+
+
+@shared_task
+def send_password_reset_code(user_email, code):
+    subject = "Password reset code"
+    message = f"This is your code:{code}"
     return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
