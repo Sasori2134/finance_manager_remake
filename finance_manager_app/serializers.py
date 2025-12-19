@@ -1,10 +1,12 @@
 from rest_framework import serializers
 from . import models
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, EmailValidator
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django_redis import get_redis_connection
+
 
 user = get_user_model()
 
@@ -118,3 +120,47 @@ class ChangepasswordinputSerializer(serializers.Serializer):
         user.set_password(new_password)
         user.save()
         return user
+    
+
+class SetpasswordcodeEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField(validators=[EmailValidator('Invalid email')])
+    
+    def validate_email(self, value):
+        if not user.objects.filter(email=value).exists():
+            raise serializers.ValidationError({'email' : "Email doesn't exist"})
+        
+
+class ResetPasswordSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only = True, validators = [RegexValidator(
+                regex=r'^(?=.*[A-Z])(?=(?:.*\d){3,}).+$', 
+                message="You should have at least one uppercase character and at least 3 numbers in password")
+        ])
+    class Meta:
+        model = user
+        fields = [
+            'email',
+            'password'
+        ]
+
+
+    def validate(self, data):
+        email = data.get('email')
+        new_password = data.get('password')
+        user_ins = user.objects.filter(email=data.get('email'))
+        if not user_ins.exists():
+            raise serializers.ValidationError({'email' : "Email doesn't exist"})
+        elif user.check_password(new_password):
+            raise serializers.ValidationError({'password' : "You password can't be same as your current password"})
+        try:
+            validate_password(new_password)
+        except ValidationError as e:
+            raise ValidationError({'password' : e.message})
+        return data
+    
+    def save(self):
+        user_ins = user.objects.filter(email = self.validated_data.get('email'))
+        new_password = self.validated_data.get('password')
+        user_ins.set_password(new_password)
+        user_ins.save()
+        return user_ins
+        
