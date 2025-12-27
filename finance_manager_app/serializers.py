@@ -2,10 +2,8 @@ from rest_framework import serializers
 from . import models
 from django.core.validators import RegexValidator, EmailValidator
 from django.contrib.auth import get_user_model
-from django.contrib.auth.hashers import check_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django_redis import get_redis_connection
 
 
 user = get_user_model()
@@ -162,5 +160,4 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
         new_password = self.validated_data.get('password')
         user_ins.set_password(new_password)
         user_ins.save()
-        return user_ins
-        
+        return user_ins       

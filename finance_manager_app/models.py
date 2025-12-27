@@ -61,6 +61,14 @@ class Monthly_budget(models.Model):
     budget_exact_email_sent = models.BooleanField(default=False)
     created_at = models.DateField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                name='user_category_unique_constraint',
+                  fields=('user', 'category')
+                )
+        ]
+
     def __str__(self):
         return f"{self.user} | {self.category} | {self.created_at}"
 

@@ -18,7 +18,6 @@ from . import cache
 from datetime import date
 from .tasks import send_password_change_notification, send_password_reset_code
 from django_redis import get_redis_connection
-from django.core.exceptions import ValidationError
 
 
 
@@ -75,7 +74,6 @@ class Monthly_budgetView(
 ):
     serializer_class = BudgetSerializer
     permission_classes = [IsOwner, IsAuthenticated]
-    lookup_field = 'pk'
     filter_backends = [DjangoFilterBackend]
     filterset_class = Monthly_budgetFilter
 
@@ -115,7 +113,7 @@ class Monthly_budgetView(
         return self.update(request, *args, **kwargs)
 
     def patch(self, request, *args, **kwargs):
-        return self.partial_update(request, *args, *kwargs)
+        return self.partial_update(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         return self.destroy(request, *args, **kwargs)
@@ -144,7 +142,7 @@ class RecurringBillView(
         return self.list(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        return self.create(request, *args, *kwargs)
+        return self.create(request, *args, **kwargs)
 
     def put(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
