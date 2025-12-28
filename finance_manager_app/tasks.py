@@ -17,7 +17,7 @@ def send_budget_warning_email(user, category, user_email):
         Q(category__transaction__transaction_type = 'expense')
     )
     budget = Monthly_budget.objects.filter(user = user, category__category = category).select_related('category').annotate(
-    spent = Coalesce(Sum("category__transaction__price", filter=transaction_filter), Value(0, output_field=DecimalField()))).annotate(remaining = F('budget')-F('spent'))[0]
+    spent = Coalesce(Sum("category__transaction__price", filter=transaction_filter), Value(0, output_field=DecimalField()))).annotate(remaining = F('budget')-F('spent'))
     remaining = float(budget.remaining)
     subject = "Budget warning"
     if remaining < 0 and not budget.budget_exceeded_email_sent:
