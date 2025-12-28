@@ -24,13 +24,20 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 
 class BudgetSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     spent = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     remaining = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     
     class Meta:
         model = models.Monthly_budget
-
+        validators = [
+            serializers.UniqueTogetherValidator(
+                queryset=model.objects.all(),
+                fields=('user', 'category')
+            )
+        ]
         fields = [
+            'user',
             'pk',
             'budget',
             'spent',

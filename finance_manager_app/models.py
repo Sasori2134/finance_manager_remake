@@ -49,12 +49,12 @@ class Transaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user} | {self.category} | {self.created_at}"
+        return f"{self.pk} | {self.user} | {self.category} | {self.created_at}"
 
 
 class Monthly_budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    category = models.ForeignKey(CategoryModel, on_delete=models.SET_NULL, null=True)
+    category = models.ForeignKey(CategoryModel, on_delete=models.CASCADE)
     budget = models.DecimalField(max_digits=10, decimal_places=2)
     budget_exceeded_email_sent = models.BooleanField(default=False)
     budget_four_fifth_exceeded_email_sent = models.BooleanField(default=False)
@@ -64,13 +64,13 @@ class Monthly_budget(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                name='user_category_unique_constraint',
-                  fields=('user', 'category')
+                name='user_category_unique_constraint',  
+                fields=('user', 'category')
                 )
         ]
 
     def __str__(self):
-        return f"{self.user} | {self.category} | {self.created_at}"
+        return f"{self.pk} | {self.user} | {self.category} | {self.created_at}"
 
 
 class Recurring_bill(models.Model):
@@ -83,4 +83,4 @@ class Recurring_bill(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user} | {self.category} | {self.created_at}"
+        return f"{self.pk} | {self.user} | {self.category} | {self.created_at}"

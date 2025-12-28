@@ -59,3 +59,13 @@ def send_password_reset_code(user_email, code):
     subject = "Password reset code"
     message = f"This is your code:{code}"
     return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
+
+
+@shared_task
+def reset_budget_email_sent_fields():
+    Monthly_budget.objects.all().update(
+        budget_exceeded_email_sent = False,
+        budget_four_fifth_exceeded_email_sent=False, 
+        budget_exact_email_sent=False
+        )
+    return 1
