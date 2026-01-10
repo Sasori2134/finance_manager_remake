@@ -39,7 +39,7 @@ class TransactionView(
     mixins.DestroyModelMixin
 ):
     serializer_class = TransactionSerializer
-    permission_classes = [IsOwner, IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwner]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TransactionFilter
 
@@ -73,7 +73,7 @@ class Monthly_budgetView(
     mixins.DestroyModelMixin
 ):
     serializer_class = BudgetSerializer
-    permission_classes = [IsOwner, IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwner]
     filter_backends = [DjangoFilterBackend]
     filterset_class = Monthly_budgetFilter
 
@@ -128,7 +128,7 @@ class RecurringBillView(
 ):
 
     serializer_class = RecurringBillSerializer
-    permission_classes = [IsOwner, IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwner]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RecurringBillFilter
 
@@ -158,7 +158,7 @@ class DashboardListView(
     generics.ListAPIView
 ):
     serializer_class = DashboardSerializer
-    permission_classes = [IsOwner, IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = DashboardFilter
 
