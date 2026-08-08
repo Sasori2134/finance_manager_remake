@@ -18,6 +18,7 @@ from . import cache
 from datetime import date
 from .tasks import send_password_change_notification, send_password_reset_code
 from django_redis import get_redis_connection
+from rest_framework.viewsets import ModelViewSet
 
 
 
@@ -31,38 +32,53 @@ class RegisterView(
         return serializer.save()
 
 
-class TransactionView(
-    generics.GenericAPIView,
-    mixins.CreateModelMixin,
-    mixins.ListModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin
-):
+class TransactionViewSet(ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated, IsOwner]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TransactionFilter
 
     def get_queryset(self):
-        return models.Transaction.objects.filter(user=self.request.user)
+        return models.Transaction.objects.filter(user = self.request.user)
 
     def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
+        return serializer.save(user = self.request.user)
 
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)
 
-    def put(self, request, *args, **kwargs):
-        return self.update(request, *args, **kwargs)
 
-    def patch(self, request, *args, **kwargs):
-        return self.partial_update(request, *args, **kwargs)
+# class TransactionView(
+#     generics.GenericAPIView,
+#     mixins.CreateModelMixin,
+#     mixins.ListModelMixin,
+#     mixins.UpdateModelMixin,
+#     mixins.DestroyModelMixin
+# ):
+#     serializer_class = TransactionSerializer
+#     permission_classes = [IsAuthenticated, IsOwner]
+#     filter_backends = [DjangoFilterBackend]
+#     filterset_class = TransactionFilter
 
-    def delete(self, request, *args, **kwargs):
-        return self.destroy(request, *args, **kwargs)
+#     def get_queryset(self):
+#         return models.Transaction.objects.filter(user=self.request.user)
+
+#     def perform_create(self, serializer):
+#         return serializer.save(user=self.request.user)
+
+#     def get(self, request, *args, **kwargs):
+#         return self.list(request, *args, **kwargs)
+
+#     def post(self, request, *args, **kwargs):
+#         return self.create(request, *args, **kwargs)
+
+#     def put(self, request, *args, **kwargs):
+#         return self.update(request, *args, **kwargs)
+
+#     def patch(self, request, *args, **kwargs):
+#         return self.partial_update(request, *args, **kwargs)
+
+#     def delete(self, request, *args, **kwargs):
+#         return self.destroy(request, *args, **kwargs)
 
 
 class Monthly_budgetView(
