@@ -7,16 +7,20 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance_manager_app', '0018_alter_monthly_budget_category'),
+        ("finance_manager_app", "0018_alter_monthly_budget_category"),
     ]
 
     operations = [
         migrations.RemoveConstraint(
-            model_name='monthly_budget',
-            name='user_category_unique_constraint',
+            model_name="monthly_budget",
+            name="user_category_unique_constraint",
         ),
         migrations.AddConstraint(
-            model_name='monthly_budget',
-            constraint=models.UniqueConstraint(deferrable=django.db.models.constraints.Deferrable['DEFERRED'], fields=('user', 'category'), name='user_category_unique_constraint'),
+            model_name="monthly_budget",
+            constraint=models.UniqueConstraint(
+                deferrable=django.db.models.constraints.Deferrable["DEFERRED"],
+                fields=("user", "category"),
+                name="user_category_unique_constraint",
+            ),
         ),
     ]

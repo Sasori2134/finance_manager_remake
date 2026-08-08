@@ -1,38 +1,42 @@
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from django.db import models
-from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 
 # Create your models here.
-User = 'finance_manager_app.CustomUserModel'
+User = "finance_manager_app.CustomUserModel"
 
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, email, password = None, **extra_fields):
+    def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("You have to include email")
         email = self.normalize_email(email)
-        user = self.model(email = email, **extra_fields)
+        user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save()
         return user
-    
-    def create_superuser(self, email, password = None, **extra_fields):
+
+    def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
-    
+
 
 class CustomUserModel(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(unique = True)
+    email = models.EmailField(unique=True)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
 
 
-#might change so user can add their own categories later
+# might change so user can add their own categories later
 class CategoryModel(models.Model):
     category = models.CharField(max_length=100)
 
@@ -42,7 +46,9 @@ class CategoryModel(models.Model):
 
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    category = models.ForeignKey(CategoryModel, on_delete=models.SET_NULL, null=True, related_name='transaction')
+    category = models.ForeignKey(
+        CategoryModel, on_delete=models.SET_NULL, null=True, related_name="transaction"
+    )
     item = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_type = models.CharField(max_length=8)
@@ -64,9 +70,8 @@ class Monthly_budget(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                name='user_category_unique_constraint',  
-                fields=('user', 'category')
-                )
+                name="user_category_unique_constraint", fields=("user", "category")
+            )
         ]
 
     def __str__(self):
@@ -78,7 +83,7 @@ class Recurring_bill(models.Model):
     category = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     item = models.CharField(max_length=100)
-    transaction_type = models.CharField(max_length=7, default='expense')
+    transaction_type = models.CharField(max_length=7, default="expense")
     payment_due = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 

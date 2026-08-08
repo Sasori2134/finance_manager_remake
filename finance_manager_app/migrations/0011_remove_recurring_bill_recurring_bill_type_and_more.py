@@ -6,17 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance_manager_app', '0010_alter_transaction_created_at'),
+        ("finance_manager_app", "0010_alter_transaction_created_at"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='recurring_bill',
-            name='recurring_bill_type',
+            model_name="recurring_bill",
+            name="recurring_bill_type",
         ),
         migrations.AddField(
-            model_name='recurring_bill',
-            name='payment_due',
+            model_name="recurring_bill",
+            name="payment_due",
             field=models.PositiveIntegerField(default=1),
         ),
     ]

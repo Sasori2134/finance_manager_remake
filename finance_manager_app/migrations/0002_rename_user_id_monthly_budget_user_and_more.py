@@ -6,23 +6,23 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance_manager_app', '0001_initial'),
+        ("finance_manager_app", "0001_initial"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='monthly_budget',
-            old_name='user_id',
-            new_name='user',
+            model_name="monthly_budget",
+            old_name="user_id",
+            new_name="user",
         ),
         migrations.RenameField(
-            model_name='recurring_bill',
-            old_name='user_id',
-            new_name='user',
+            model_name="recurring_bill",
+            old_name="user_id",
+            new_name="user",
         ),
         migrations.RenameField(
-            model_name='transaction',
-            old_name='user_id',
-            new_name='user',
+            model_name="transaction",
+            old_name="user_id",
+            new_name="user",
         ),
     ]

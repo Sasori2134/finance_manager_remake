@@ -6,16 +6,21 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance_manager_app', '0019_remove_monthly_budget_user_category_unique_constraint_and_more'),
+        (
+            "finance_manager_app",
+            "0019_remove_monthly_budget_user_category_unique_constraint_and_more",
+        ),
     ]
 
     operations = [
         migrations.RemoveConstraint(
-            model_name='monthly_budget',
-            name='user_category_unique_constraint',
+            model_name="monthly_budget",
+            name="user_category_unique_constraint",
         ),
         migrations.AddConstraint(
-            model_name='monthly_budget',
-            constraint=models.UniqueConstraint(fields=('user', 'category'), name='user_category_unique_constraint'),
+            model_name="monthly_budget",
+            constraint=models.UniqueConstraint(
+                fields=("user", "category"), name="user_category_unique_constraint"
+            ),
         ),
     ]
