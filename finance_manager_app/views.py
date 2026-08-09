@@ -17,7 +17,7 @@ from finance_manager.permissions import IsOwner
 from . import cache, models
 from .filters import (
     DashboardFilter,
-    Monthly_budgetFilter,
+    MonthlyBudgetFilter,
     RecurringBillFilter,
     TransactionFilter,
 )
@@ -29,6 +29,7 @@ from .serializers import (
     RegisterSerializer,
     ResetPasswordSerializer,
     SetpasswordcodeEmailSerializer,
+    TransactionGetListSerializer,
     TransactionSerializer,
 )
 from .tasks import send_password_change_notification, send_password_reset_code
@@ -43,50 +44,32 @@ class RegisterView(generics.CreateAPIView):
 
 
 class TransactionViewSet(ModelViewSet):
-    serializer_class = TransactionSerializer
+    serializer_class = TransactionGetListSerializer
     permission_classes = [IsAuthenticated, IsOwner]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TransactionFilter
 
     def get_queryset(self):
-        return models.Transaction.objects.filter(user=self.request.user)
+        query = models.Transaction.objects.filter(user=self.request.user)
+        if self.action in {"partial_update", "update", "destroy"}:
+            return query
+        return query.select_related("category")
 
     def perform_create(self, serializer):
         return serializer.save(user=self.request.user)
 
 
-# class TransactionView(
-#     generics.GenericAPIView,
-#     mixins.CreateModelMixin,
-#     mixins.ListModelMixin,
-#     mixins.UpdateModelMixin,
-#     mixins.DestroyModelMixin
-# ):
-#     serializer_class = TransactionSerializer
-#     permission_classes = [IsAuthenticated, IsOwner]
-#     filter_backends = [DjangoFilterBackend]
-#     filterset_class = TransactionFilter
+class MonthlyBudgetView(ModelViewSet):
+    serializer_class = BudgetSerializer
+    permission_classes = [IsAuthenticated, IsOwner]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = MonthlyBudgetFilter
 
-#     def get_queryset(self):
-#         return models.Transaction.objects.filter(user=self.request.user)
+    def get_queryset(self):
+        return super().get_queryset()
 
-#     def perform_create(self, serializer):
-#         return serializer.save(user=self.request.user)
-
-#     def get(self, request, *args, **kwargs):
-#         return self.list(request, *args, **kwargs)
-
-#     def post(self, request, *args, **kwargs):
-#         return self.create(request, *args, **kwargs)
-
-#     def put(self, request, *args, **kwargs):
-#         return self.update(request, *args, **kwargs)
-
-#     def patch(self, request, *args, **kwargs):
-#         return self.partial_update(request, *args, **kwargs)
-
-#     def delete(self, request, *args, **kwargs):
-#         return self.destroy(request, *args, **kwargs)
+    def perform_create(self, serializer):
+        return serializer.save(user=self.request.user)
 
 
 class Monthly_budgetView(

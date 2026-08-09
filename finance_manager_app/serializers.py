@@ -13,7 +13,40 @@ class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Transaction
 
-        fields = ["pk", "created_at", "category", "item", "price", "transaction_type"]
+        fields = ["pk", "category", "item", "price", "transaction_type", "created_at"]
+
+
+class categorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.CategoryModel
+
+        fields = ["pk", "category"]
+
+
+class TransactionGetListSerializer(serializers.ModelSerializer):
+    category = categorySerializer()
+
+    class Meta:
+        model = models.Transaction
+
+        fields = ["pk", "category", "item", "price", "transaction_type", "created_at"]
+
+    def create(self, validated_data):
+        category_name = validated_data.get("category").get("category")
+        category_obj, _ = models.CategoryModel.objects.get_or_create(
+            category=category_name
+        )
+        validated_data["category"] = category_obj
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        category_name = validated_data.get("category").get("category")
+        category_obj, _ = models.CategoryModel.objects.get_or_create(
+            category=category_name
+        )
+        validated_data["category"] = category_obj
+        return super().update(instance, validated_data)
 
 
 class BudgetSerializer(serializers.ModelSerializer):
@@ -39,6 +72,12 @@ class BudgetSerializer(serializers.ModelSerializer):
             "category",
             "created_at",
         ]
+
+    def create(self, validated_data):
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
 
 
 class RecurringBillSerializer(serializers.ModelSerializer):

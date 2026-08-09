@@ -19,7 +19,7 @@ class TransactionFilter(filters.FilterSet):
         fields = {"transaction_type": ["iexact"]}
 
 
-class Monthly_budgetFilter(filters.FilterSet):
+class MonthlyBudgetFilter(filters.FilterSet):
     created_at = filters.DateFromToRangeFilter(field_name="created_at")
     category__icontains = filters.CharFilter(
         field_name="category__category", lookup_expr="icontains"

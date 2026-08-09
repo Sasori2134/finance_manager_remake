@@ -33,6 +33,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+INTERNAL_IPS = ["127.0.0.1"]
+
 
 # Application definition
 
@@ -48,9 +50,12 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "finance_manager_app.apps.FinanceManagerAppConfig",
     "django_celery_beat",
+    "drf_spectacular",
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -84,7 +89,8 @@ AUTH_USER_MODEL = "finance_manager_app.CustomUserModel"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-    )
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 # Database
@@ -94,7 +100,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env("NAME"),
-        "USER": env("USER"),
+        "USER": env("DBUSER"),
         "PASSWORD": env("PASSWORD"),
         "HOST": env("HOST"),
         "PORT": env("PORT"),
