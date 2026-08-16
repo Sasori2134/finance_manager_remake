@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator, RegexValidator
 from rest_framework import serializers
 
+from finance_manager_app.custom_mixins import CategoryCreateUpdateMixin
+
 from . import models
 
 user = get_user_model()
@@ -24,7 +26,9 @@ class categorySerializer(serializers.ModelSerializer):
         fields = ["pk", "category"]
 
 
-class TransactionGetListSerializer(serializers.ModelSerializer):
+class TransactionGetListSerializer(
+    serializers.ModelSerializer, CategoryCreateUpdateMixin
+):
     category = categorySerializer()
 
     class Meta:
@@ -33,23 +37,15 @@ class TransactionGetListSerializer(serializers.ModelSerializer):
         fields = ["pk", "category", "item", "price", "transaction_type", "created_at"]
 
     def create(self, validated_data):
-        category_name = validated_data.get("category").get("category")
-        category_obj, _ = models.CategoryModel.objects.get_or_create(
-            category=category_name
-        )
-        validated_data["category"] = category_obj
+        validated_data = self.resolve_category(validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        category_name = validated_data.get("category").get("category")
-        category_obj, _ = models.CategoryModel.objects.get_or_create(
-            category=category_name
-        )
-        validated_data["category"] = category_obj
+        validated_data = self.resolve_category(validated_data)
         return super().update(instance, validated_data)
 
 
-class BudgetSerializer(serializers.ModelSerializer):
+class BudgetSerializer(serializers.ModelSerializer, CategoryCreateUpdateMixin):
     spent = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     remaining = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
@@ -68,19 +64,11 @@ class BudgetSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        category_name = validated_data.get("category").get("category")
-        category_obj, _ = models.CategoryModel.objects.get_or_create(
-            category=category_name
-        )
-        validated_data["category"] = category_obj
+        validated_data = self.resolve_category(validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        category_name = validated_data.get("category").get("category")
-        category_obj, _ = models.CategoryModel.objects.get_or_create(
-            category=category_name
-        )
-        validated_data["category"] = category_obj
+        validated_data = self.resolve_category(validated_data)
         return super().update(instance, validated_data)
 
     def validate(self, attrs):
@@ -89,6 +77,7 @@ class BudgetSerializer(serializers.ModelSerializer):
         category_user_exists = self.Meta.model.objects.filter(
             user=user, category__category=category_name
         ).exists()
+
         if category_user_exists:
             raise ValidationError(message="budget for this category already exists")
         return super().validate(attrs)
@@ -99,7 +88,7 @@ class BudgetSerializer(serializers.ModelSerializer):
         return value
 
 
-class RecurringBillSerializer(serializers.ModelSerializer):
+class RecurringBillSerializer(serializers.ModelSerializer, CategoryCreateUpdateMixin):
     class Meta:
         model = models.Recurring_bill
         fields = [
@@ -111,6 +100,14 @@ class RecurringBillSerializer(serializers.ModelSerializer):
             "transaction_type",
             "created_at",
         ]
+
+    def create(self, validated_data):
+        validated_data = self.resolve_category(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = self.resolve_category(validated_data)
+        return super().update(instance, validated_data)
 
 
 class RegisterSerializer(serializers.ModelSerializer):

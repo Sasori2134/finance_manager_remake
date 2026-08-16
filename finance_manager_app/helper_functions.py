@@ -5,7 +5,6 @@ from django.db.models import (
     Subquery,
     Sum,
     Value,
-    prefetch_related_objects,
 )
 from django.db.models.functions import Coalesce
 
@@ -51,3 +50,7 @@ def get_single_budget_with_totals(budget_instance, current_date, user):
     budget_instance.spent = current_month_expenses
     budget_instance.remaining = budget_instance.budget - budget_instance.spent
     return budget_instance
+
+
+def get_or_create_category(category_name):
+    category_obj, _ = models.CategoryModel.objects.get_or_create(category=category_name)
