@@ -8,6 +8,7 @@ from . import views
 
 router = SimpleRouter()
 router.register(r"transactions", views.TransactionViewSet, basename="transactions")
+router.register(r"budgets", views.MonthlyBudgetViewSet, basename="budgets")
 
 
 urlpatterns = (
@@ -19,14 +20,10 @@ urlpatterns = (
         path("password/verifytoken/", views.VerifyresetpasswordcodeView.as_view()),
         path("password/resetpassword/", views.ResetpasswordView.as_view()),
         path("api/register/", views.RegisterView.as_view()),
-        path("api/monthlybudget/create/", views.Monthly_budgetView.as_view()),
-        path("api/monthlybudget/list/", views.Monthly_budgetView.as_view()),
-        path("api/monthlybudget/update/<int:pk>/", views.Monthly_budgetView.as_view()),
-        path("api/monthlybudget/delete/<int:pk>/", views.Monthly_budgetView.as_view()),
-        path("api/recurringbill/create/", views.RecurringBillView.as_view()),
-        path("api/recurringbill/list/", views.RecurringBillView.as_view()),
-        path("api/recurringbill/update/<int:pk>/", views.RecurringBillView.as_view()),
-        path("api/recurringbill/delete/<int:pk>/", views.RecurringBillView.as_view()),
+        # path("api/recurringbill/create/", views.RecurringBillView.as_view()),
+        # path("api/recurringbill/list/", views.RecurringBillView.as_view()),
+        # path("api/recurringbill/update/<int:pk>/", views.RecurringBillView.as_view()),
+        # path("api/recurringbill/delete/<int:pk>/", views.RecurringBillView.as_view()),
         path("api/changepassword/", views.ChangepasswordView.as_view()),
         path("api/logout/", views.LogoutView.as_view()),
         path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

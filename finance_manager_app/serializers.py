@@ -50,21 +50,15 @@ class TransactionGetListSerializer(serializers.ModelSerializer):
 
 
 class BudgetSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    spent = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    spent = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     remaining = serializers.DecimalField(
-        max_digits=10, decimal_places=2, required=False
+        max_digits=10, decimal_places=2, read_only=True
     )
+    category = categorySerializer()
 
     class Meta:
         model = models.Monthly_budget
-        validators = [
-            serializers.UniqueTogetherValidator(
-                queryset=model.objects.all(), fields=("user", "category")
-            )
-        ]
         fields = [
-            "user",
             "pk",
             "budget",
             "spent",
@@ -74,10 +68,35 @@ class BudgetSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        category_name = validated_data.get("category").get("category")
+        category_obj, _ = models.CategoryModel.objects.get_or_create(
+            category=category_name
+        )
+        validated_data["category"] = category_obj
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        category_name = validated_data.get("category").get("category")
+        category_obj, _ = models.CategoryModel.objects.get_or_create(
+            category=category_name
+        )
+        validated_data["category"] = category_obj
         return super().update(instance, validated_data)
+
+    def validate(self, attrs):
+        user = self.context.get("request").user
+        category_name = attrs.get("category").get("category")
+        category_user_exists = self.Meta.model.objects.filter(
+            user=user, category__category=category_name
+        ).exists()
+        if category_user_exists:
+            raise ValidationError(message="budget for this category already exists")
+        return super().validate(attrs)
+
+    def validate_budget(self, value):
+        if value <= 0:
+            raise ValidationError(message="budget must be greater than 0")
+        return value
 
 
 class RecurringBillSerializer(serializers.ModelSerializer):
@@ -167,6 +186,7 @@ class ChangepasswordinputSerializer(serializers.Serializer):
 class SetpasswordcodeEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(validators=[EmailValidator("Invalid email")])
 
+    # Remove the Email doesnt exist error just say email was sent if the email is not found in the database
     def validate_email(self, value):
         if not user.objects.filter(email=value).exists():
             raise serializers.ValidationError({"email": "Email doesn't exist"})

@@ -36,7 +36,6 @@ class CustomUserModel(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
 
-# might change so user can add their own categories later
 class CategoryModel(models.Model):
     category = models.CharField(max_length=100)
 

@@ -1,11 +1,22 @@
 import secrets
 from datetime import date
 
-from django.db.models import Avg, Case, DecimalField, F, Q, Sum, Value, When
+from django.db.models import (
+    Avg,
+    Case,
+    DecimalField,
+    F,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce, ExtractMonth
 from django_filters.rest_framework import DjangoFilterBackend
 from django_redis import get_redis_connection
-from rest_framework import generics, mixins, status
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -15,12 +26,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from finance_manager.permissions import IsOwner
 
 from . import cache, models
+from .decorators.cache_decorator import cache_set_or_get
 from .filters import (
     DashboardFilter,
     MonthlyBudgetFilter,
     RecurringBillFilter,
     TransactionFilter,
 )
+from .helper_functions import get_budgets_with_totals, get_single_budget_with_totals
 from .serializers import (
     BudgetSerializer,
     ChangepasswordinputSerializer,
@@ -45,7 +58,7 @@ class RegisterView(generics.CreateAPIView):
 
 class TransactionViewSet(ModelViewSet):
     serializer_class = TransactionGetListSerializer
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TransactionFilter
 
@@ -59,116 +72,84 @@ class TransactionViewSet(ModelViewSet):
         return serializer.save(user=self.request.user)
 
 
-class MonthlyBudgetView(ModelViewSet):
+class MonthlyBudgetViewSet(ModelViewSet):
     serializer_class = BudgetSerializer
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = MonthlyBudgetFilter
 
     def get_queryset(self):
-        return super().get_queryset()
+        query = models.Monthly_budget.objects.filter(user=self.request.user)
+        if self.action == "destroy":
+            return query
+        return query.select_related("category")
 
     def perform_create(self, serializer):
         return serializer.save(user=self.request.user)
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        current_date = date.today()
+        obj = get_single_budget_with_totals(instance, current_date, request.user)
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data)
 
-class Monthly_budgetView(
-    generics.GenericAPIView,
-    mixins.CreateModelMixin,
-    mixins.ListModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-):
-    serializer_class = BudgetSerializer
-    permission_classes = [IsAuthenticated, IsOwner]
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = Monthly_budgetFilter
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        instance = self.get_object()
+        current_date = date.today()
+        obj = get_single_budget_with_totals(instance, current_date, request.user)
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data)
 
-    def get_queryset(self):
-        return models.Monthly_budget.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
-
+    @cache_set_or_get(key="budget", timeout=300)
     def list(self, request, *args, **kwargs):
-        cached = cache.get_cached_data(user_id=request.user.id, key="budget")
-        if cached:
-            return Response(cached)
         queryset = self.filter_queryset(self.get_queryset())
         current_date = date.today()
-        transaction_filter = (
-            Q(category__transaction__user=request.user)
-            & Q(category__transaction__created_at__month=current_date.month)
-            & Q(category__transaction__created_at__year=current_date.year)
-            & Q(category__transaction__transaction_type="expense")
-        )
-
-        new_queryset = (
-            queryset.select_related("category")
-            .annotate(
-                spent=Coalesce(
-                    Sum("category__transaction__price", filter=transaction_filter),
-                    Value(0, output_field=DecimalField()),
-                )
-            )
-            .annotate(remaining=F("budget") - F("spent"))
-        )
+        new_queryset = get_budgets_with_totals(queryset, current_date, request.user)
 
         serialized = self.get_serializer(new_queryset, many=True)
-        cache.set_cached_data(
-            user_id=request.user.id, key="budget", value=serialized.data
-        )
         return Response(serialized.data)
 
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)
+# TODO: turn this into a viewset
+# class RecurringBillView(
+#     generics.GenericAPIView,
+#     mixins.CreateModelMixin,
+#     mixins.ListModelMixin,
+#     mixins.UpdateModelMixin,
+#     mixins.DestroyModelMixin,
+# ):
 
-    def put(self, request, *args, **kwargs):
-        return self.update(request, *args, **kwargs)
+#     serializer_class = RecurringBillSerializer
+#     permission_classes = [IsAuthenticated, IsOwner]
+#     filter_backends = [DjangoFilterBackend]
+#     filterset_class = RecurringBillFilter
 
-    def patch(self, request, *args, **kwargs):
-        return self.partial_update(request, *args, **kwargs)
+#     def get_queryset(self):
+#         return models.Recurring_bill.objects.filter(user=self.request.user)
 
-    def delete(self, request, *args, **kwargs):
-        return self.destroy(request, *args, **kwargs)
+#     def perform_create(self, serializer):
+#         return serializer.save(user=self.request.user)
 
+#     def get(self, request, *args, **kwargs):
+#         return self.list(request, *args, **kwargs)
 
-class RecurringBillView(
-    generics.GenericAPIView,
-    mixins.CreateModelMixin,
-    mixins.ListModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-):
+#     def post(self, request, *args, **kwargs):
+#         return self.create(request, *args, **kwargs)
 
-    serializer_class = RecurringBillSerializer
-    permission_classes = [IsAuthenticated, IsOwner]
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = RecurringBillFilter
+#     def put(self, request, *args, **kwargs):
+#         return self.update(request, *args, **kwargs)
 
-    def get_queryset(self):
-        return models.Recurring_bill.objects.filter(user=self.request.user)
+#     def patch(self, request, *args, **kwargs):
+#         return self.partial_update(request, *args, **kwargs)
 
-    def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
-
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)
-
-    def put(self, request, *args, **kwargs):
-        return self.update(request, *args, **kwargs)
-
-    def patch(self, request, *args, **kwargs):
-        return self.partial_update(request, *args, **kwargs)
-
-    def delete(self, request, *args, **kwargs):
-        return self.destroy(request, *args, **kwargs)
+#     def delete(self, request, *args, **kwargs):
+#         return self.destroy(request, *args, **kwargs)
 
 
 class DashboardListView(generics.ListAPIView):
@@ -273,20 +254,17 @@ class GenerateresetpasswordcodeView(generics.GenericAPIView):
         serialized = self.serializer_class(data=request.data)
         serialized.is_valid(raise_exception=True)
         email = request.data.get("email")
-        if conn.get(f"{email}:ratelimit"):
-            conn.incr(f"{email}:ratelimit", 1)
-            if int(conn.get(f"{email}:ratelimit")) > 3:
-                return Response(
-                    {"detail": "Too many attempts please try again in 15 minutes"},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS,
-                )
-        else:
-            conn.set(f"{email}:ratelimit", 1, 900)
-        cache_key = f"{email}:resetpasswordcode"
-        if conn.get(cache_key):
-            conn.delete(cache_key)
-        code = str(secrets.randbelow(10**6))
-        conn.set(f"{email}:resetpasswordcode", code, 300)
+
+        if conn.incr(f"{email}:ratelimit", 1) >= 3:  # Add 3 to constants
+            return Response(
+                {"detail": "Too many attempts please try again in 15 minutes"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        cache_key = f"{email}:resetpasswordcode"  # Add it to constants
+        conn.delete(cache_key)
+        code = str(secrets.randbelow(10**6))  # add 10**6 to constants
+        conn.set(f"{email}:resetpasswordcode", code, 300)  # add 300 to constants
         send_password_reset_code.delay(email, code)
         return Response(status=status.HTTP_200_OK)
 
