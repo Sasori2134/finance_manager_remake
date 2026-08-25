@@ -6,7 +6,8 @@ from finance_manager_app import cache
 def cache_set_or_get(key, timeout=300):
     def decorator(func):
         def wrapper(self, request, *args, **kwargs):
-            cached = cache.get_cached_data(user_id=request.user.id, key=key)
+            full_key = f"{request.user.id}:{key}:{":".join([f'{k}-{v}' for k, v in request.query_params.items()])}"
+            cached = cache.get_cached_data(user_id=request.user.id, key=full_key)
 
             if cached:
                 return Response(cached)
@@ -14,7 +15,10 @@ def cache_set_or_get(key, timeout=300):
             response = func(self, request, *args, **kwargs)
 
             cache.set_cached_data(
-                user_id=request.user.id, key=key, value=response.data, timeout=timeout
+                user_id=request.user.id,
+                key=full_key,
+                value=response.data,
+                timeout=timeout,
             )
             return response
 

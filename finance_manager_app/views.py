@@ -96,7 +96,6 @@ class MonthlyBudgetViewSet(ModelViewSet):
         instance = serializer.instance
         return self.budget_response(instance)
 
-    # TODO: add filters to the budget key and invalidate the cache when budget is modified
     @cache_set_or_get(key="budget", timeout=300)
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
