@@ -37,7 +37,7 @@ class RecurringBillFilter(filters.FilterSet):
     class Meta:
         model = models.Recurring_bill
         fields = {
-            "category": ["icontains", "iexact"],
+            "category__category": ["icontains", "iexact"],
             "item": ["icontains", "iexact"],
         }
 

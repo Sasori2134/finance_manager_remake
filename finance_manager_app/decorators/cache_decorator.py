@@ -13,7 +13,9 @@ def cache_set_or_get(key, timeout=300):
 
             response = func(self, request, *args, **kwargs)
 
-            cache.set_cached_data(user_id=request.user.id, key=key, value=response.data)
+            cache.set_cached_data(
+                user_id=request.user.id, key=key, value=response.data, timeout=timeout
+            )
             return response
 
         return wrapper

@@ -11,11 +11,20 @@ from . import models
 user = get_user_model()
 
 
+# TODO: delete this later
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Transaction
 
-        fields = ["pk", "category", "item", "price", "transaction_type", "created_at"]
+        fields = [
+            "pk",
+            "category",
+            "recurring_bill",
+            "item",
+            "price",
+            "transaction_type",
+            "created_at",
+        ]
 
 
 class categorySerializer(serializers.ModelSerializer):
@@ -26,15 +35,78 @@ class categorySerializer(serializers.ModelSerializer):
         fields = ["pk", "category"]
 
 
+class RecurringBillSerializer(serializers.ModelSerializer, CategoryCreateUpdateMixin):
+    transaction_type = serializers.CharField(read_only=True)
+    paid = serializers.BooleanField(read_only=True, required=False)
+    category = categorySerializer()
+
+    class Meta:
+        model = models.Recurring_bill
+
+        fields = [
+            "pk",
+            "category",
+            "price",
+            "payment_due",
+            "item",
+            "transaction_type",
+            "paid",
+            "created_at",
+        ]
+
+    def validate_price(self, value):
+        if value <= 0:
+            raise ValidationError(message="amount must be greater than 0")
+        return value
+
+    def create(self, validated_data):
+        validated_data = self.resolve_category(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = self.resolve_category(validated_data)
+        return super().update(instance, validated_data)
+
+
+# class RecurringBillGetListSerializer(serializers.ModelSerializer):
+#     transaction_type = serializers.CharField(read_only=True)
+
+#     class Meta:
+#         model = models.Recurring_bill
+#         fields = [
+#             "pk",
+#             "category",
+#             "amount",
+#             "payment_due",
+#             "item",
+#             "transaction_type",
+#             "created_at",
+#         ]
+
+
 class TransactionGetListSerializer(
     serializers.ModelSerializer, CategoryCreateUpdateMixin
 ):
     category = categorySerializer()
+    recurring_bill = RecurringBillSerializer(read_only=True)
 
     class Meta:
         model = models.Transaction
 
-        fields = ["pk", "category", "item", "price", "transaction_type", "created_at"]
+        fields = [
+            "pk",
+            "category",
+            "recurring_bill",
+            "item",
+            "price",
+            "transaction_type",
+            "created_at",
+        ]
+
+    def validate_price(self, value):
+        if value <= 0:
+            raise ValidationError(message="price must be greater than 0")
+        return value
 
     def create(self, validated_data):
         validated_data = self.resolve_category(validated_data)
@@ -86,28 +158,6 @@ class BudgetSerializer(serializers.ModelSerializer, CategoryCreateUpdateMixin):
         if value <= 0:
             raise ValidationError(message="budget must be greater than 0")
         return value
-
-
-class RecurringBillSerializer(serializers.ModelSerializer, CategoryCreateUpdateMixin):
-    class Meta:
-        model = models.Recurring_bill
-        fields = [
-            "pk",
-            "category",
-            "amount",
-            "payment_due",
-            "item",
-            "transaction_type",
-            "created_at",
-        ]
-
-    def create(self, validated_data):
-        validated_data = self.resolve_category(validated_data)
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        validated_data = self.resolve_category(validated_data)
-        return super().update(instance, validated_data)
 
 
 class RegisterSerializer(serializers.ModelSerializer):

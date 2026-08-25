@@ -1,18 +1,7 @@
 import secrets
 from datetime import date
 
-from django.db.models import (
-    Avg,
-    Case,
-    DecimalField,
-    F,
-    OuterRef,
-    Q,
-    Subquery,
-    Sum,
-    Value,
-    When,
-)
+from django.db.models import Avg, Case, Exists, F, OuterRef, Q, Sum, When
 from django.db.models.functions import Coalesce, ExtractMonth
 from django_filters.rest_framework import DjangoFilterBackend
 from django_redis import get_redis_connection
@@ -22,8 +11,6 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from finance_manager.permissions import IsOwner
 
 from . import cache, models
 from .decorators.cache_decorator import cache_set_or_get
@@ -63,6 +50,7 @@ class TransactionViewSet(ModelViewSet):
     filterset_class = TransactionFilter
 
     def get_queryset(self):
+        # TODO: take a look at this might need optimization
         query = models.Transaction.objects.filter(user=self.request.user)
         if self.action in {"partial_update", "update", "destroy"}:
             return query
@@ -97,59 +85,59 @@ class MonthlyBudgetViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
+
         self.perform_update(serializer)
-        instance = self.get_object()
+
+        instance = serializer.instance
         current_date = date.today()
         obj = get_single_budget_with_totals(instance, current_date, request.user)
         serializer = self.get_serializer(obj)
+
         return Response(serializer.data)
 
+    # TODO: add filters to the budget key and invalidate the cache when budget is modified
     @cache_set_or_get(key="budget", timeout=300)
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         current_date = date.today()
+
         new_queryset = get_budgets_with_totals(queryset, current_date, request.user)
 
         serialized = self.get_serializer(new_queryset, many=True)
         return Response(serialized.data)
 
 
-# TODO: turn this into a viewset
-# class RecurringBillView(
-#     generics.GenericAPIView,
-#     mixins.CreateModelMixin,
-#     mixins.ListModelMixin,
-#     mixins.UpdateModelMixin,
-#     mixins.DestroyModelMixin,
-# ):
+class RecurringBillViewSet(ModelViewSet):
+    serializer_class = RecurringBillSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = RecurringBillFilter
 
-#     serializer_class = RecurringBillSerializer
-#     permission_classes = [IsAuthenticated, IsOwner]
-#     filter_backends = [DjangoFilterBackend]
-#     filterset_class = RecurringBillFilter
+    def get_queryset(self):
+        query = models.Recurring_bill.objects.filter(user=self.request.user)
 
-#     def get_queryset(self):
-#         return models.Recurring_bill.objects.filter(user=self.request.user)
+        if self.action == "destroy":
+            return query
 
-#     def perform_create(self, serializer):
-#         return serializer.save(user=self.request.user)
+        current_month = date.today().month
+        current_year = date.today().year
 
-#     def get(self, request, *args, **kwargs):
-#         return self.list(request, *args, **kwargs)
+        return query.select_related("category").annotate(
+            paid=Exists(
+                models.Transaction.objects.filter(
+                    recurring_bill=OuterRef("pk"),
+                    user=self.request.user,
+                    created_at__month=current_month,
+                    created_at__year=current_year,
+                )
+            )
+        )
 
-#     def post(self, request, *args, **kwargs):
-#         return self.create(request, *args, **kwargs)
-
-#     def put(self, request, *args, **kwargs):
-#         return self.update(request, *args, **kwargs)
-
-#     def patch(self, request, *args, **kwargs):
-#         return self.partial_update(request, *args, **kwargs)
-
-#     def delete(self, request, *args, **kwargs):
-#         return self.destroy(request, *args, **kwargs)
+    def perform_create(self, serializer):
+        return serializer.save(user=self.request.user)
 
 
 class DashboardListView(generics.ListAPIView):

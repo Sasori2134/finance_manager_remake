@@ -50,7 +50,16 @@ class Transaction(models.Model):
     )
     item = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    transaction_type = models.CharField(max_length=8)
+    recurring_bill = models.ForeignKey(
+        "Recurring_bill",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transaction",
+    )
+    transaction_type = models.CharField(
+        max_length=8, choices={"expense": "expense", "income": "income"}
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -61,9 +70,11 @@ class Monthly_budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     category = models.ForeignKey(CategoryModel, on_delete=models.CASCADE)
     budget = models.DecimalField(max_digits=10, decimal_places=2)
+    # TODO: seperate the email sent fields into a different model in nosql db
     budget_exceeded_email_sent = models.BooleanField(default=False)
     budget_four_fifth_exceeded_email_sent = models.BooleanField(default=False)
     budget_exact_email_sent = models.BooleanField(default=False)
+
     created_at = models.DateField(auto_now_add=True)
 
     class Meta:
@@ -79,8 +90,11 @@ class Monthly_budget(models.Model):
 
 class Recurring_bill(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    category = models.CharField(max_length=100)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    # category = models.CharField(max_length=100)
+    category = models.ForeignKey(
+        CategoryModel, related_name="recurring_bills", on_delete=models.CASCADE
+    )
+    price = models.DecimalField(max_digits=10, decimal_places=2)
     item = models.CharField(max_length=100)
     transaction_type = models.CharField(max_length=7, default="expense")
     payment_due = models.PositiveIntegerField()

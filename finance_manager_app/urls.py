@@ -9,6 +9,9 @@ from . import views
 router = SimpleRouter()
 router.register(r"transactions", views.TransactionViewSet, basename="transactions")
 router.register(r"budgets", views.MonthlyBudgetViewSet, basename="budgets")
+router.register(
+    r"recurring-bills", views.RecurringBillViewSet, basename="recurring-bills"
+)
 
 
 urlpatterns = (
