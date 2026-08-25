@@ -145,7 +145,13 @@ class BudgetSerializer(serializers.ModelSerializer, CategoryCreateUpdateMixin):
 
     def validate(self, attrs):
         user = self.context.get("request").user
-        category_name = attrs.get("category").get("category")
+        category = attrs.get("category")
+
+        if category is None:
+            return super().validate(attrs)
+
+        category_name = category.get("category")
+
         category_user_exists = self.Meta.model.objects.filter(
             user=user, category__category=category_name
         ).exists()

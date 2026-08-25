@@ -50,9 +50,8 @@ class TransactionViewSet(ModelViewSet):
     filterset_class = TransactionFilter
 
     def get_queryset(self):
-        # TODO: take a look at this might need optimization
         query = models.Transaction.objects.filter(user=self.request.user)
-        if self.action in {"partial_update", "update", "destroy"}:
+        if self.action == "destroy":
             return query
         return query.select_related("category")
 
@@ -75,12 +74,15 @@ class MonthlyBudgetViewSet(ModelViewSet):
     def perform_create(self, serializer):
         return serializer.save(user=self.request.user)
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
+    def budget_response(self, instance):
         current_date = date.today()
-        obj = get_single_budget_with_totals(instance, current_date, request.user)
+        obj = get_single_budget_with_totals(instance, current_date, self.request.user)
         serializer = self.get_serializer(obj)
         return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return self.budget_response(instance)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
@@ -92,11 +94,7 @@ class MonthlyBudgetViewSet(ModelViewSet):
         self.perform_update(serializer)
 
         instance = serializer.instance
-        current_date = date.today()
-        obj = get_single_budget_with_totals(instance, current_date, request.user)
-        serializer = self.get_serializer(obj)
-
-        return Response(serializer.data)
+        return self.budget_response(instance)
 
     # TODO: add filters to the budget key and invalidate the cache when budget is modified
     @cache_set_or_get(key="budget", timeout=300)
