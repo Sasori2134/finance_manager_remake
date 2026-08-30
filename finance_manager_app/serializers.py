@@ -195,7 +195,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class DashboardSerializer(serializers.Serializer):
     period_choices = [("1m", "1M"), ("2m", "2M"), ("3m", "3M")]
-    period = serializers.ChoiceField(period_choices)
+    period = serializers.ChoiceField(period_choices, required=False, default="1m")
 
 
 class ChangepasswordinputSerializer(serializers.Serializer):

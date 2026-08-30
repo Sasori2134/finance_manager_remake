@@ -1,5 +1,6 @@
 import secrets
 from datetime import date
+from decimal import Decimal
 
 from django.db.models import Avg, Case, Exists, F, OuterRef, Q, Sum, When
 from django.db.models.functions import Coalesce, ExtractMonth
@@ -39,8 +40,8 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
-    def perform_create(self, serializer):
-        return serializer.save()
+    def perform_create(self, serializer) -> None:
+        serializer.save()
 
 
 class TransactionViewSet(ModelViewSet):
@@ -55,8 +56,8 @@ class TransactionViewSet(ModelViewSet):
             return query
         return query.select_related("category")
 
-    def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
+    def perform_create(self, serializer) -> None:
+        serializer.save(user=self.request.user)
 
 
 class MonthlyBudgetViewSet(ModelViewSet):
@@ -71,8 +72,8 @@ class MonthlyBudgetViewSet(ModelViewSet):
             return query
         return query.select_related("category")
 
-    def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
+    def perform_create(self, serializer) -> None:
+        serializer.save(user=self.request.user)
 
     def budget_response(self, instance):
         current_date = date.today()
@@ -133,11 +134,11 @@ class RecurringBillViewSet(ModelViewSet):
             )
         )
 
-    def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
+    def perform_create(self, serializer) -> None:
+        serializer.save(user=self.request.user)
 
 
-class DashboardListView(generics.ListAPIView):
+class DashboardView(generics.ListAPIView):
     serializer_class = DashboardSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -148,77 +149,64 @@ class DashboardListView(generics.ListAPIView):
             "-created_at"
         )
 
-    def list(self, request, *args, **kwargs):
+    @cache_set_or_get(key="dashboard", timeout=300)
+    def list(self, request, *args, **kwargs) -> Response:
         serialized = DashboardSerializer(data=request.query_params)
-        if serialized.is_valid(raise_exception=True):
-            cached_data = cache.get_cached_data(
-                user_id=request.user.id,
-                key="dashboard",
-                period=serialized.data.get("period"),
-            )
-            if cached_data:
-                return Response(cached_data)
-            queryset = self.filter_queryset(self.get_queryset())
-            avg_income = queryset.filter(transaction_type="income").aggregate(
-                Avg("price", default=0)
-            )["price__avg"]
+        serialized.is_valid(raise_exception=True)
 
-            avg_expense = queryset.filter(transaction_type="expense").aggregate(
-                Avg("price", default=0)
-            )["price__avg"]
+        queryset = self.filter_queryset(self.get_queryset())
+        calculations = queryset.aggregate(
+            avg_income=Avg("price", default=0, filter=Q(transaction_type="income")),
+            avg_expense=Avg("price", default=0, filter=Q(transaction_type="expense")),
+            balance=Sum(
+                Case(
+                    When(transaction_type="income", then=F("price")),
+                    When(transaction_type="expense", then=-F("price")),
+                ),
+                default=0,
+            ),
+            income=Sum("price", default=0, filter=Q(transaction_type="income")),
+            expense=Sum("price", default=0, filter=Q(transaction_type="expense")),
+        )
 
-            balance = (
-                queryset.aggregate(
-                    balance=Sum(
-                        Case(
-                            When(transaction_type="income", then=F("price")),
-                            When(transaction_type="expense", then=-F("price")),
-                        )
-                    )
-                )["balance"]
-                or 0
+        donut_chart = (
+            queryset.order_by()
+            .values(
+                transaction_category=F("category__category"),
             )
+            .annotate(price=Sum("price"))
+        )
 
-            total = queryset.aggregate(
-                income=Sum("price", default=0, filter=Q(transaction_type="income")),
-                expense=Sum("price", default=0, filter=Q(transaction_type="expense")),
-            )
-            donut_chart = queryset.values(
-                transaction_category=F("category__category")
-            ).annotate(price=Sum("price"))
-            monthly_income_expense = queryset.values(
-                month=ExtractMonth(F("created_at"))
-            ).annotate(
+        monthly_income_expense = (
+            queryset.order_by()
+            .values(month=ExtractMonth(F("created_at")))
+            .annotate(
                 expense=Sum("price", filter=Q(transaction_type="expense"), default=0),
                 income=Sum("price", filter=Q(transaction_type="income"), default=0),
             )
+        )
 
-            recent_transactions = TransactionSerializer(queryset[:5], many=True)
+        recent_transactions = TransactionSerializer(queryset[:5], many=True)
 
-            data = {
-                "avg_income": round(avg_income, 2),
-                "avg_expense": round(avg_expense, 2),
-                "balance": balance,
-                "total_income": total.get("income"),
-                "total_expense": total.get("expense"),
-                "donut_chart": list(donut_chart),
-                "monthly_income_expense_chart": list(monthly_income_expense),
-                "recent_transactions": recent_transactions.data,
-            }
-            cache.set_cached_data(
-                user_id=request.user.id,
-                key="dashboard",
-                value=data,
-                period=serialized.data.get("period"),
-            )
-            return Response(data)
+        data = {
+            "avg_income": round(calculations["avg_income"], 2),
+            "avg_expense": round(calculations["avg_expense"], 2),
+            "balance": round(calculations["balance"], 2),
+            "total_income": round(calculations["income"], 2),
+            "total_expense": round(calculations["expense"], 2),
+            "donut_chart": list(donut_chart),
+            "monthly_income_expense_chart": list(monthly_income_expense),
+            "recent_transactions": recent_transactions.data,
+        }
+
+        return Response(data)
 
 
 class ChangepasswordView(generics.GenericAPIView):
     serializer_class = ChangepasswordinputSerializer
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, *args, **kwargs):
+    def patch(self, request, *args, **kwargs) -> Response:
         serialized = self.serializer_class(
             data=request.data, context={"request": request}
         )
@@ -234,7 +222,7 @@ class GenerateresetpasswordcodeView(generics.GenericAPIView):
     serializer_class = SetpasswordcodeEmailSerializer
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs) -> Response:
         conn = get_redis_connection("default")
         serialized = self.serializer_class(data=request.data)
         serialized.is_valid(raise_exception=True)
@@ -258,7 +246,7 @@ class VerifyresetpasswordcodeView(generics.GenericAPIView):
     serializer_class = SetpasswordcodeEmailSerializer
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs) -> Response:
         conn = get_redis_connection("default")
         self.serializer_class(data=request.data)
         code = request.data.get("code")
@@ -277,7 +265,7 @@ class ResetpasswordView(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs) -> Response:
         conn = get_redis_connection("default")
         serialized = self.serializer_class(data=request.data)
         serialized.is_valid(raise_exception=True)
@@ -301,7 +289,7 @@ class ResetpasswordView(generics.GenericAPIView):
 class LogoutView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs) -> Response:
         try:
             token = RefreshToken(request.data.get("refresh"))
         except TokenError:

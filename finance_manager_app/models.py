@@ -39,7 +39,7 @@ class CustomUserModel(AbstractBaseUser, PermissionsMixin):
 class CategoryModel(models.Model):
     category = models.CharField(max_length=100)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.category
 
 
@@ -62,7 +62,7 @@ class Transaction(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.pk} | {self.user} | {self.category} | {self.created_at}"
 
 
@@ -84,13 +84,12 @@ class Monthly_budget(models.Model):
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.pk} | {self.user} | {self.category} | {self.created_at}"
 
 
 class Recurring_bill(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    # category = models.CharField(max_length=100)
     category = models.ForeignKey(
         CategoryModel, related_name="recurring_bills", on_delete=models.CASCADE
     )
@@ -100,5 +99,5 @@ class Recurring_bill(models.Model):
     payment_due = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.pk} | {self.user} | {self.category} | {self.created_at}"

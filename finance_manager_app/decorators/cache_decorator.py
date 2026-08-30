@@ -1,12 +1,15 @@
+from typing import Callable
+
 from rest_framework.response import Response
 
 from finance_manager_app import cache
 
 
-def cache_set_or_get(key, timeout=300):
-    def decorator(func):
-        def wrapper(self, request, *args, **kwargs):
-            full_key = f"{request.user.id}:{key}:{":".join([f'{k}-{v}' for k, v in request.query_params.items()])}"
+def cache_set_or_get(key, timeout=300) -> Callable[..., Callable[..., Response]]:
+    def decorator(func) -> Callable[..., Response]:
+        def wrapper(self, request, *args, **kwargs) -> Response:
+            full_key = f"{request.user.id}:{key}:{":".join([f'{k}-{v}' for k,
+                                                           v in request.query_params.items()])}"
             cached = cache.get_cached_data(user_id=request.user.id, key=full_key)
 
             if cached:
