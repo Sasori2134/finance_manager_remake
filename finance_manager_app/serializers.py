@@ -12,19 +12,19 @@ user = get_user_model()
 
 
 # TODO: delete this later
-class TransactionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.Transaction
+# class TransactionSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = models.Transaction
 
-        fields = [
-            "pk",
-            "category",
-            "recurring_bill",
-            "item",
-            "price",
-            "transaction_type",
-            "created_at",
-        ]
+#         fields = [
+#             "pk",
+#             "category",
+#             "recurring_bill",
+#             "item",
+#             "price",
+#             "transaction_type",
+#             "created_at",
+#         ]
 
 
 class categorySerializer(serializers.ModelSerializer):
@@ -84,9 +84,7 @@ class RecurringBillSerializer(serializers.ModelSerializer, CategoryCreateUpdateM
 #         ]
 
 
-class TransactionGetListSerializer(
-    serializers.ModelSerializer, CategoryCreateUpdateMixin
-):
+class TransactionSerializer(serializers.ModelSerializer, CategoryCreateUpdateMixin):
     category = categorySerializer()
     recurring_bill = RecurringBillSerializer(read_only=True)
 
@@ -236,16 +234,14 @@ class ChangepasswordinputSerializer(serializers.Serializer):
         return user
 
 
-class SetpasswordcodeEmailSerializer(serializers.Serializer):
+class ForgotPasswordEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(validators=[EmailValidator("Invalid email")])
 
-    # Remove the Email doesnt exist error just say email was sent if the email is not found in the database
-    def validate_email(self, value):
-        if not user.objects.filter(email=value).exists():
-            raise serializers.ValidationError({"email": "Email doesn't exist"})
+    # might add email check
 
 
-class ResetPasswordSerializer(serializers.ModelSerializer):
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField()
     password = serializers.CharField(
         write_only=True,
         validators=[
@@ -255,30 +251,28 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
             )
         ],
     )
-
-    class Meta:
-        model = user
-        fields = ["email", "password"]
+    email = serializers.EmailField(validators=[EmailValidator("Invalid email")])
 
     def validate(self, data):
-        email = data.get("email")
         new_password = data.get("password")
-        user_ins = user.objects.filter(email=data.get("email"))
-        if not user_ins.exists():
-            raise serializers.ValidationError({"email": "Email doesn't exist"})
-        elif user.check_password(new_password):
+        user_instance = user.objects.filter(email=data.get("email"))
+        if not user_instance.exists():
+            raise serializers.ValidationError({"detail": "Email doesn't exist"})
+        elif user_instance.first().check_password(new_password):
             raise serializers.ValidationError(
-                {"password": "You password can't be same as your current password"}
+                {"detail": "You password can't be same as your current password"}
             )
         try:
             validate_password(new_password)
         except ValidationError as e:
-            raise ValidationError({"password": e.message})
+            raise ValidationError({"detail": e})
         return data
 
     def save(self):
-        user_ins = user.objects.filter(email=self.validated_data.get("email"))
+        user_ins = user.objects.filter(email=self.validated_data.get("email")).first()
+
         new_password = self.validated_data.get("password")
         user_ins.set_password(new_password)
-        user_ins.save()
+
+        user_ins.save(update_fields=["password"])
         return user_ins

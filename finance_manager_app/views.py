@@ -1,9 +1,9 @@
 import secrets
 from datetime import date
-from decimal import Decimal
+from hashlib import sha256
 
 from django.db.models import Avg, Case, Exists, F, OuterRef, Q, Sum, When
-from django.db.models.functions import Coalesce, ExtractMonth
+from django.db.models.functions import ExtractMonth
 from django_filters.rest_framework import DjangoFilterBackend
 from django_redis import get_redis_connection
 from rest_framework import generics, status
@@ -15,6 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from . import cache, models
 from .decorators.cache_decorator import cache_set_or_get
+from .decorators.rate_limiter_decorator import rate_limiter
 from .filters import (
     DashboardFilter,
     MonthlyBudgetFilter,
@@ -26,14 +27,13 @@ from .serializers import (
     BudgetSerializer,
     ChangepasswordinputSerializer,
     DashboardSerializer,
+    ForgotPasswordEmailSerializer,
     RecurringBillSerializer,
     RegisterSerializer,
     ResetPasswordSerializer,
-    SetpasswordcodeEmailSerializer,
-    TransactionGetListSerializer,
     TransactionSerializer,
 )
-from .tasks import send_password_change_notification, send_password_reset_code
+from .tasks import send_password_reset_email
 
 
 class RegisterView(generics.CreateAPIView):
@@ -45,7 +45,7 @@ class RegisterView(generics.CreateAPIView):
 
 
 class TransactionViewSet(ModelViewSet):
-    serializer_class = TransactionGetListSerializer
+    serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TransactionFilter
@@ -186,7 +186,9 @@ class DashboardView(generics.ListAPIView):
             )
         )
 
-        recent_transactions = TransactionSerializer(queryset[:5], many=True)
+        recent_transactions = TransactionSerializer(
+            queryset.select_related("category")[:5], many=True
+        )
 
         data = {
             "avg_income": round(calculations["avg_income"], 2),
@@ -202,88 +204,53 @@ class DashboardView(generics.ListAPIView):
         return Response(data)
 
 
-class ChangepasswordView(generics.GenericAPIView):
-    serializer_class = ChangepasswordinputSerializer
-    permission_classes = [IsAuthenticated]
-
-    def patch(self, request, *args, **kwargs) -> Response:
-        serialized = self.serializer_class(
-            data=request.data, context={"request": request}
-        )
-        serialized.is_valid(raise_exception=True)
-        user = serialized.save()
-        send_password_change_notification.delay(user.email)
-        return Response(
-            {"message": "Password has been changed!"}, status=status.HTTP_200_OK
-        )
-
-
-class GenerateresetpasswordcodeView(generics.GenericAPIView):
-    serializer_class = SetpasswordcodeEmailSerializer
+class ForgotPasswordView(generics.GenericAPIView):
+    serializer_class = ForgotPasswordEmailSerializer
     permission_classes = [AllowAny]
 
+    @rate_limiter(key="ratelimit", limit=3, timeout=600)
     def post(self, request, *args, **kwargs) -> Response:
-        conn = get_redis_connection("default")
-        serialized = self.serializer_class(data=request.data)
-        serialized.is_valid(raise_exception=True)
-        email = request.data.get("email")
-
-        if conn.incr(f"{email}:ratelimit", 1) >= 3:  # Add 3 to constants
-            return Response(
-                {"detail": "Too many attempts please try again in 15 minutes"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
-
-        cache_key = f"{email}:resetpasswordcode"  # Add it to constants
-        conn.delete(cache_key)
-        code = str(secrets.randbelow(10**6))  # add 10**6 to constants
-        conn.set(f"{email}:resetpasswordcode", code, 300)  # add 300 to constants
-        send_password_reset_code.delay(email, code)
-        return Response(status=status.HTTP_200_OK)
-
-
-class VerifyresetpasswordcodeView(generics.GenericAPIView):
-    serializer_class = SetpasswordcodeEmailSerializer
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs) -> Response:
-        conn = get_redis_connection("default")
-        self.serializer_class(data=request.data)
-        code = request.data.get("code")
-        email = request.data.get("email")
-        if conn.get(f"{email}:resetpasswordcode").decode() == code:
-            conn.delete(f"{email}:resetpasswordcode")
-            token = secrets.token_urlsafe(64)
-            conn.set(f"{email}:resetpasswordtoken", token, 900)
-            return Response({"token": token}, status=status.HTTP_200_OK)
-        return Response(
-            {"detail": "Code is expired"}, status=status.HTTP_400_BAD_REQUEST
-        )
-
-
-class ResetpasswordView(generics.GenericAPIView):
-    serializer_class = ResetPasswordSerializer
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs) -> Response:
-        conn = get_redis_connection("default")
         serialized = self.serializer_class(data=request.data)
         serialized.is_valid(raise_exception=True)
         email = serialized.data.get("email")
-        token = request.data.get("token")
+
+        token = secrets.token_urlsafe(64)
+        hash_token = sha256(token.encode()).hexdigest()
+        conn = get_redis_connection("default")
+        conn.set(f"{email}:resetpasswordcode", hash_token, 300)
+
+        send_password_reset_email.delay(email, token)
+        return Response(status=status.HTTP_200_OK)
+
+
+class NewPasswordView(generics.GenericAPIView):
+    serializer_class = ResetPasswordSerializer
+    permission_classes = [AllowAny]
+
+    @rate_limiter(key="ratelimit", limit=5, timeout=600)
+    def post(self, request, *args, **kwargs) -> Response:
+        merged_data = {**request.data, **request.query_params.dict()}
+        serialized = self.serializer_class(data=merged_data)
+        serialized.is_valid(raise_exception=True)
+        email = serialized.data.get("email")
+        token = serialized.validated_data.get("token")
+        conn = get_redis_connection("default")
+
         cached_token = (
-            conn.get(f"{email}:resetpasswordtoken").decode()
-            if conn.get(f"{email}:resetpasswordtoken")
+            conn.get(f"{email}:resetpasswordcode").decode()
+            if conn.get(f"{email}:resetpasswordcode")
             else None
         )
-        if cached_token and cached_token == token:
-            conn.delete(f"{email}:resetpasswordtoken")
-            serialized.save()
-            send_password_change_notification.delay(email)
-            return Response({"detail": "Your password has successfully been changed"})
-        return Response(
-            {"detail": "Wrong or expired token"}, status=status.HTTP_400_BAD_REQUEST
-        )
+
+        if cached_token != sha256(token.encode()).hexdigest():
+            return Response(
+                {"detail": "Wrong or expired token"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        conn.delete(f"{email}:resetpasswordcode")
+
+        serialized.save()
+        return Response({"detail": "Your password has successfully been changed"})
 
 
 class LogoutView(generics.GenericAPIView):

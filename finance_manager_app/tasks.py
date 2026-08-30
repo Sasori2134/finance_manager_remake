@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from typing import Literal
 
 from celery import shared_task
 from django.conf import settings
@@ -7,6 +8,8 @@ from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 
 from .models import Monthly_budget, Recurring_bill
+
+# TODO: refactor this
 
 
 @shared_task
@@ -53,7 +56,7 @@ def send_budget_warning_email(user, category, user_email):
 
 
 @shared_task
-def send_recurring_bill_warning_email():
+def send_recurring_bill_warning_email() -> Literal[1]:
     bills = Recurring_bill.objects.filter(
         payment_due=(date.today() + timedelta(days=1)).day
     ).select_related("user")
@@ -70,26 +73,27 @@ def send_recurring_bill_warning_email():
     return 1
 
 
-@shared_task
-def send_password_change_notification(user_email):
-    subject = "Password change"
-    message = "Hello just wanted to let you know that your password has been changed if it wasn't you please report it to our customer support"
-    return send_mail(
-        subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False
-    )
+# @shared_task
+# def send_password_change_notification(user_email) -> int:
+#     subject = "Password change"
+#     message = "Hello just wanted to let you know that your password has been changed if it wasn't you please report it to our customer support"
+#     return send_mail(
+#         subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False
+#     )
 
 
 @shared_task
-def send_password_reset_code(user_email, code):
+def send_password_reset_email(user_email, token) -> int:
+    BASE_URL = "http://localhost:8000/auth/forgot-password/"
     subject = "Password reset code"
-    message = f"This is your code:{code}"
+    message = f"Password reset URL: {BASE_URL}?token={token}"
     return send_mail(
         subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False
     )
 
 
 @shared_task
-def reset_budget_email_sent_fields():
+def reset_budget_email_sent_fields() -> Literal[1]:
     Monthly_budget.objects.all().update(
         budget_exceeded_email_sent=False,
         budget_four_fifth_exceeded_email_sent=False,
