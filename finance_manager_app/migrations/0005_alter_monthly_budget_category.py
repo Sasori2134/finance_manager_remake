@@ -7,13 +7,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance_manager_app', '0004_categorymodel_alter_transaction_category'),
+        ("finance_manager_app", "0004_categorymodel_alter_transaction_category"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='monthly_budget',
-            name='category',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='finance_manager_app.categorymodel'),
+            model_name="monthly_budget",
+            name="category",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="finance_manager_app.categorymodel",
+            ),
         ),
     ]

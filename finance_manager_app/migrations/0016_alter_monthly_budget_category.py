@@ -7,14 +7,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance_manager_app', '0015_monthly_budget_user_category_unique_constraint'),
+        ("finance_manager_app", "0015_monthly_budget_user_category_unique_constraint"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='monthly_budget',
-            name='category',
-            field=models.ForeignKey(default=5, on_delete=django.db.models.deletion.CASCADE, to='finance_manager_app.categorymodel'),
+            model_name="monthly_budget",
+            name="category",
+            field=models.ForeignKey(
+                default=5,
+                on_delete=django.db.models.deletion.CASCADE,
+                to="finance_manager_app.categorymodel",
+            ),
             preserve_default=False,
         ),
     ]

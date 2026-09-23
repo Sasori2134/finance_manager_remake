@@ -6,12 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance_manager_app', '0014_rename_budget_exceed_email_sent_monthly_budget_budget_exceeded_email_sent'),
+        (
+            "finance_manager_app",
+            "0014_rename_budget_exceed_email_sent_monthly_budget_budget_exceeded_email_sent",
+        ),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='monthly_budget',
-            constraint=models.UniqueConstraint(fields=('user', 'category'), name='user_category_unique_constraint'),
+            model_name="monthly_budget",
+            constraint=models.UniqueConstraint(
+                fields=("user", "category"), name="user_category_unique_constraint"
+            ),
         ),
     ]

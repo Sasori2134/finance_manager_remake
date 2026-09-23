@@ -1,71 +1,102 @@
-from celery import shared_task
-from django.core.mail import send_mail
-from django.conf import settings
-from .models import Monthly_budget, Recurring_bill
-from django.db.models import Sum, Value, F, Q, DecimalField
-from django.db.models.functions import Coalesce
 from datetime import date, timedelta
+from typing import Literal
 
+from celery import shared_task
+from django.conf import settings
+from django.core.mail import send_mail
+from django.db.models import DecimalField, F, Q, Sum, Value
+from django.db.models.functions import Coalesce
+
+from .models import Monthly_budget, Recurring_bill
+
+# TODO: refactor this
 
 
 @shared_task
 def send_budget_warning_email(user, category, user_email):
     transaction_filter = (
-        Q(category__transaction__user = user) &
-        Q(category__transaction__created_at__month = date.today().month) &
-        Q(category__transaction__created_at__year = date.today().year) &
-        Q(category__transaction__transaction_type = 'expense')
+        Q(category__transaction__user=user)
+        & Q(category__transaction__created_at__month=date.today().month)
+        & Q(category__transaction__created_at__year=date.today().year)
+        & Q(category__transaction__transaction_type="expense")
     )
-    budget = Monthly_budget.objects.filter(user = user, category__category = category).select_related('category').annotate(
-    spent = Coalesce(Sum("category__transaction__price", filter=transaction_filter), Value(0, output_field=DecimalField()))).annotate(remaining = F('budget')-F('spent'))
+    budget = (
+        Monthly_budget.objects.filter(user=user, category__category=category)
+        .select_related("category")
+        .annotate(
+            spent=Coalesce(
+                Sum("category__transaction__price", filter=transaction_filter),
+                Value(0, output_field=DecimalField()),
+            )
+        )
+        .annotate(remaining=F("budget") - F("spent"))
+    )
     remaining = float(budget.remaining)
     subject = "Budget warning"
     if remaining < 0 and not budget.budget_exceeded_email_sent:
         message = f"You exceeded your monthly budget by {abs(remaining)}"
         budget.budget_exceeded_email_sent = True
-        budget.save(update_fields=['budget_exceeded_email_sent'])
+        budget.save(update_fields=["budget_exceeded_email_sent"])
     elif remaining == 0 and not budget.budget_exact_email_sent:
         message = f"You have 0 dollars left in your budget"
         budget.budget_exact_email_sent = True
-        budget.save(update_fields=['budget_exact_email_sent'])
-    elif remaining <= float(budget.budget) * 0.2 and not budget.budget_four_fifth_exceeded_email_sent:
+        budget.save(update_fields=["budget_exact_email_sent"])
+    elif (
+        remaining <= float(budget.budget) * 0.2
+        and not budget.budget_four_fifth_exceeded_email_sent
+    ):
         message = f"You exceeded 80% of your monthly budget"
         budget.budget_four_fifth_exceeded_email_sent = True
-        budget.save(update_fields=['budget_four_fifth_exceeded_email_sent'])
+        budget.save(update_fields=["budget_four_fifth_exceeded_email_sent"])
     else:
         return None
-    return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
+    return send_mail(
+        subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False
+    )
 
 
 @shared_task
-def send_recurring_bill_warning_email():
-    bills = Recurring_bill.objects.filter(payment_due = (date.today() + timedelta(days=1)).day).select_related("user")
+def send_recurring_bill_warning_email() -> Literal[1]:
+    bills = Recurring_bill.objects.filter(
+        payment_due=(date.today() + timedelta(days=1)).day
+    ).select_related("user")
     for bill in bills:
         subject = "Payment Due"
         message = f"Wanted to remind you that your bill for {bill.item} is due tomorrow \n\n Thank you for using my finance manager :)"
-        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [bill.user.email], fail_silently=False)
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [bill.user.email],
+            fail_silently=False,
+        )
     return 1
 
 
-@shared_task
-def send_password_change_notification(user_email):
-    subject = "Password change"
-    message = "Hello just wanted to let you know that your password has been changed if it wasn't you please report it to our customer support"
-    return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
+# @shared_task
+# def send_password_change_notification(user_email) -> int:
+#     subject = "Password change"
+#     message = "Hello just wanted to let you know that your password has been changed if it wasn't you please report it to our customer support"
+#     return send_mail(
+#         subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False
+#     )
 
 
 @shared_task
-def send_password_reset_code(user_email, code):
+def send_password_reset_email(user_email, token) -> int:
+    BASE_URL = "http://localhost:8000/auth/forgot-password/"
     subject = "Password reset code"
-    message = f"This is your code:{code}"
-    return send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False)
+    message = f"Password reset URL: {BASE_URL}?token={token}"
+    return send_mail(
+        subject, message, settings.DEFAULT_FROM_EMAIL, [user_email], fail_silently=False
+    )
 
 
 @shared_task
-def reset_budget_email_sent_fields():
+def reset_budget_email_sent_fields() -> Literal[1]:
     Monthly_budget.objects.all().update(
-        budget_exceeded_email_sent = False,
-        budget_four_fifth_exceeded_email_sent=False, 
-        budget_exact_email_sent=False
-        )
+        budget_exceeded_email_sent=False,
+        budget_four_fifth_exceeded_email_sent=False,
+        budget_exact_email_sent=False,
+    )
     return 1
